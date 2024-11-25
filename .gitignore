@@ -1,0 +1,72 @@
+# Byte-compiled Python files
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment directories
+venv/
+env/
+
+# Environment variables file
+.env  # Ensures sensitive API keys and database credentials are not tracked
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Log files and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# VS Code specific files
+.vscode/
+*.code-workspace
+
+# Dependency directories (pip, wheel, setuptools, etc.)
+*.egg-info/
+.eggs/
+
+# Compiled libraries (e.g., for C extensions)
+*.so
+*.dll
+*.dylib
+
+# TensorFlow and ML-related large files
+*.pb
+*.ckpt
+*.h5
+*.onnx
+
+# Large model or dataset files
+*.tar.gz
+*.zip
+*.tar
+*.gz
+
+# Static assets cache (if applicable)
+staticfiles/
+
+# Node.js dependencies (if using JavaScript frameworks)
+node_modules/
+
+# Flask-specific database files
+*.sqlite3
+*.db
+
+# Test outputs
+coverage/
+*.coverage
+
+# IDE configuration files
+.idea/
+
+# Custom files/directories related to Pathfinder
+config/
+settings.json
+database/
+*.sql

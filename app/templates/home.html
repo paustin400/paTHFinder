@@ -1,0 +1,36 @@
+<!-- This file serves as the landing page of the Pathfinder app.
+     It welcomes users and provides a link to search for running routes.
+     It is styled using CSS and may contain links to other key features.
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PathFinder Home</title>
+    <!-- Bootstrap CSS: Used for responsive layout and pre-built styling components -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS: Additional custom styling for this page -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <!-- Bootstrap container to center the content both horizontally and vertically -->
+    <div class="container d-flex align-items-center justify-content-center vh-100 text-center">
+        <div>
+            <!-- Main heading styled using Bootstrap's 'display-4' for a large heading -->
+            <h1 class="display-4">Welcome to PathFinder</h1>
+            <!-- Lead paragraph styled with Bootstrap's 'lead' class for a subtle intro text -->
+            <p class="lead">Explore the best running routes!</p>
+            <!-- Button styled using Bootstrap's 'btn-primary' for a blue button, 'btn-lg' for larger size -->
+            <a href="{{ url_for('main.search') }}" class="btn btn-primary btn-lg">Search for Routes</a>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS and Popper.js for handling interactive components and layout -->
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js"></script>
+    <!-- Link to the app.js file for additional JavaScript functionality -->
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

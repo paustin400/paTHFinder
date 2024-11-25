@@ -1,0 +1,41 @@
+<!-- This file allows users to set and save their route preferences.
+     It contains a form that collects the user ID and preferred route type.
+     The form submits the data to the backend for storage in the database.
+-->
+
+<!DOCTYPE html>  <!-- Specifies the document type as HTML5. -->
+<html lang="en">  <!-- Defines the language of the page as English. -->
+
+<head>
+    <meta charset="UTF-8">  <!-- Sets the character encoding to UTF-8, ensuring the page supports all text characters. -->
+    <title>Route Preferences</title>  <!-- Sets the title of the page, which appears on the browser tab. -->
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Links to the external CSS file for styling the page. 
+         The 'url_for' function dynamically generates the correct URL for the stylesheet. -->
+</head>
+
+<body>
+    <h1>Set Your Route Preferences</h1>  <!-- A header that invites the user to set route preferences. -->
+
+    <!-- This form allows users to input their user ID and preferred route type. 
+         It submits the data using a POST request to the '/preferences' route. -->
+    <form action="{{ url_for('main.preferences') }}" method="post">
+        <!-- Label and input for the user to enter their ID. -->
+        <label for="user_id">User ID:</label>
+        <input type="text" id="user_id" name="user_id">
+        
+        <!-- Label and input for the user to enter their preferred route type. -->
+        <label for="route_type">Preferred Route Type:</label>
+        <input type="text" id="route_type" name="route_type">
+        
+        <!-- Submit button for saving preferences. -->
+        <input type="submit" value="Save Preferences">
+    </form>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <!-- Links to the external JavaScript file (app.js) that handles front-end behavior.
+         The 'url_for' function dynamically generates the correct URL for the script. -->
+</body>
+
+</html>

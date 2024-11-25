@@ -1,0 +1,57 @@
+/* Fullscreen map styling */
+#map-container {
+  position: relative;
+  height: 100vh;
+  width: 100vw;
+}
+
+#map {
+  height: 100%;
+  width: 100%;
+}
+
+/* Floating sidebar panel styling */
+.floating-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: 320px;
+  background-color: rgba(255, 255, 255, 0.95);
+  overflow-y: auto;
+  padding: 20px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+}
+
+/* Consistent spacing for form elements */
+form .mb-3 {
+  margin-bottom: 1.2rem;
+}
+
+form {
+  margin-bottom: 0;
+}
+
+/* Toggle button styling */
+#toggle-btn {
+  position: absolute;
+  top: 20px;
+  left: 340px;
+  z-index: 200;
+  width: 50px;
+  height: 50px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border: none;
+  border-radius: 50%;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+#toggle-btn:hover {
+  background-color: rgba(230, 230, 230, 0.9);
+}

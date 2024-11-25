@@ -1,0 +1,37 @@
+<!-- This file displays detailed information about a specific running route.
+     It shows route attributes like name, description, distance, and elevation gain.
+     It pulls the data dynamically from the database when a user selects a route.
+-->
+
+<!DOCTYPE html>  <!-- Specifies the document type as HTML5. -->
+<html lang="en">  <!-- Defines the language of the page as English. -->
+
+<head>
+    <meta charset="UTF-8">  <!-- Sets the character encoding to UTF-8, ensuring the page supports all text characters. -->
+    <title>Route Details</title>  <!-- Sets the title of the page, which appears on the browser tab. -->
+</head>
+
+<body>
+    <h1>Route Details</h1>  <!-- A header indicating that this page shows route details. -->
+
+    <!-- Displays the name of the route dynamically using Flask template variables. -->
+    <p><strong>Name:</strong> {{ route.name }}</p>  
+    
+    <!-- Displays the description of the route dynamically. -->
+    <p><strong>Description:</strong> {{ route.description }}</p>  
+    
+    <!-- Displays the distance of the route dynamically, followed by "km". -->
+    <p><strong>Distance:</strong> {{ route.distance }} km</p>  
+    
+    <!-- Displays the elevation gain of the route dynamically, followed by "meters". -->
+    <p><strong>Elevation Gain:</strong> {{ route.elevation_gain }} meters</p>  
+    
+    <!-- A link that takes the user back to the home page. -->
+    <a href="{{ url_for('main.home') }}">Back to Home</a>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <!-- Links to an external JavaScript file (app.js) for any front-end behavior.
+         The 'url_for' function dynamically generates the correct URL for the script. -->
+</body>
+
+</html>
