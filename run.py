@@ -1,26 +1,32 @@
-# run.py: Entry point to start the Flask application
+# run.py
+import logging
+from app import create_app
+from app.ml.ai_model import init_ai_model
 
-from app import create_app  # Import the create_app function to initialize the app
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('app.log'),
+        logging.StreamHandler()
+    ]
+)
+
+logger = logging.getLogger(__name__)
 
 # Create the Flask app instance
 app = create_app()
 
 if __name__ == "__main__":
-    # Use the Flask application context to initialize the AI model
-    with app.app_context():
-        try:
-            from app.routes import fetch_route_data, preprocess_data
-            from app.ann_model import train_ann_model
-
-            # Example data for AI model initialization
-            routes_df = fetch_route_data({'lat': 40.7128, 'lng': -74.0060})  # Default to NYC
-            X, scaler, encoder = preprocess_data(routes_df)
-            y = [1] * len(X)  # Example target data (all labeled 'good')
-            ann_model = train_ann_model(X, y)  # Train the ANN model
-
-            app.logger.info("AI model initialized successfully.")
-        except Exception as e:
-            app.logger.error(f"Error initializing AI model: {e}")
-
-    # Start the Flask app with debug mode enabled
+    # Initialize the AI model within the application context
+    try:
+        with app.app_context():
+            init_ai_model()
+            logger.info("AI model initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize AI model: {e}")
+        raise
+    
+    # Start the Flask development server
     app.run(debug=True)

@@ -1,75 +1,56 @@
-<!-- This file displays the search results based on the user's input.
-     It integrates with Google Maps to show running routes visually on a map.
-     The routes are displayed as a list, and each one shows details like name and distance.
--->
+{% extends "base.html" %}
 
-<!DOCTYPE html>  <!-- Specifies the document type as HTML5. -->
-<html lang="en">  <!-- Defines the language of the page as English. -->
+{% block title %}PathFinder - Search Results{% endblock %}
 
-<head>
-    <meta charset="UTF-8">  <!-- Sets the character encoding to UTF-8, ensuring the page supports all text characters. -->
-    <title>Search Results</title>  <!-- Sets the title of the page, which appears on the browser tab. -->
+{% block content %}
+<div id="map-container">
+    <div id="sidebar" class="floating-panel">
+        <h2 class="text-center mb-4">Found Routes</h2>
+        
+        <div id="routes-list" class="routes-list">
+            {% if routes %}
+                {% for route in routes %}
+                    <div class="route-item" data-route-id="{{ route.id }}">
+                        <h3>{{ route.name }}</h3>
+                        <div class="route-details">
+                            <div class="detail-item">
+                                <span class="icon">📏</span>
+                                {{ "%.1f"|format(route.distance) }} km
+                            </div>
+                            {% if route.elevation_gain %}
+                            <div class="detail-item">
+                                <span class="icon">⛰️</span>
+                                {{ "%.1f"|format(route.elevation_gain) }}m gain
+                            </div>
+                            {% endif %}
+                            {% if route.quality_score %}
+                            <div class="detail-item">
+                                <span class="icon">📊</span>
+                                {{ "%.1f"|format(route.quality_score * 100) }}% match
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="route-description">
+                            {{ route.description }}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="no-results">
+                    No routes found matching your criteria.
+                </div>
+            {% endif %}
+        </div>
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <!-- Links to the external CSS file for styling the page. 
-         The 'url_for' function dynamically generates the correct URL for the stylesheet. -->
+        <div class="action-buttons mt-4">
+            <a href="{{ url_for('main.search_page') }}" class="btn btn-primary w-100">New Search</a>
+        </div>
+    </div>
 
-    <!-- Link to the Google Maps API, which provides mapping functionality.
-         The `callback` parameter specifies that the `initMap` function will be called once the API is loaded. -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB8yeVtzOu8J_7AHRNR7kTRNEmQ7mtxEwo&callback=initMap&libraries=&v=weekly" defer></script>
-
-    <!-- This script block loads the search results (in JSON format) and assigns them to a JavaScript variable called `routes`. -->
-    <script type="text/javascript">
-        var routes = JSON.parse('{{ routes_json | safe }}');  <!-- Parse the JSON string (routes_json) passed from the server into a JavaScript object. -->
-    </script>
-</head>
-
-<body>
-    <h2>Search Results</h2>  <!-- A header indicating that the page shows search results. -->
-
-    <!-- A div element where the Google Map will be displayed. It is styled to be 400px high and take up 100% of the width. -->
-    <div id="map" style="height: 400px; width: 100%;"></div>
-
-    <!-- Script to initialize and display the Google Map with markers for each route. -->
-    <script>
-        // Function to initialize the Google Map and display the route markers.
-        function initMap() {
-            // Check if the `routes` array is empty. If there are no routes, don't display a map.
-            if (!routes.length) {
-                return;  // No routes to display.
-            }
-
-            // Create a new Google Map centered at the location of the first route in the results.
-            const map = new google.maps.Map(document.getElementById('map'), {
-                zoom: 8,  // Set the initial zoom level of the map.
-                center: { lat: routes[0].latitude, lng: routes[0].longitude }  // Center the map at the first route's location.
-            });
-
-            // Loop through the routes and create a marker for each one on the map.
-            routes.forEach(function(route) {
-                const marker = new google.maps.Marker({
-                    position: { lat: route.latitude, lng: route.longitude },  // Set the marker's position (latitude and longitude).
-                    map: map,  // Attach the marker to the map.
-                    title: route.name  // Set the marker's title to the route name.
-                });
-            });
-        }
-    </script>
-
-    <!-- Display a list of the routes with their names and distances. -->
-    <ul>
-        <!-- Loop through each route using Flask's template syntax and display its name and distance. -->
-        {% for route in routes %}
-            <li>{{ route.name }} - {{ route.distance }} km</li>  <!-- Display the route's name and distance. -->
-        {% endfor %}
-    </ul>
-
-    <!-- A link to go back to the search page to start a new search. -->
-    <a href="{{ url_for('main.search') }}">New Search</a>
-
-    <!-- Link to the external JavaScript file (app.js) for handling front-end behavior. 
-         The 'url_for' function dynamically generates the correct URL for the file. -->
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
-</body>
-
-</html>
+    <div id="map"></div>
+    
+    <button id="toggle-sidebar" class="toggle-btn" aria-label="Toggle Sidebar">
+        ☰
+    </button>
+</div>
+{% endblock %}

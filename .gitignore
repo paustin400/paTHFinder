@@ -70,3 +70,4 @@ config/
 settings.json
 database/
 *.sql
+migrations/

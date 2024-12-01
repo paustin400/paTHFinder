@@ -1,118 +1,168 @@
-# routes.py: Defines the URL routes and their corresponding functions for the Flask app.
-from flask import Blueprint, render_template, request, jsonify, current_app
-from .models import search_routes, save_preferences, submit_feedback, get_route_details
-from .utils import generate_and_store_routes
-from .ai_model import fetch_route_data, preprocess_data  # AI model imports
-from .ann_model import train_ann_model  # Import the ANN model logic
-import json
+from flask import Blueprint, request, jsonify, render_template, current_app
+from app.models import search_routes, save_preferences, submit_feedback, get_route_details
+from app.ml.ann_model import PathfinderANN, prepare_route_features
+from sqlalchemy.exc import SQLAlchemyError
+import numpy as np
 
-# Create a Blueprint for the 'main' part of the application.
-main = Blueprint('main', __name__)
+bp = Blueprint('routes', __name__)
+ann_model = None
 
-# Initialize AI Model once when the app starts to save resources
-try:
-    routes_df = fetch_route_data({'lat': 40.7128, 'lng': -74.0060})  # Default: NYC
-    X, scaler, encoder = preprocess_data(routes_df)
-    y = [1] * len(X)  # Example target data for demo purposes (all labeled 'good')
-    ann_model = train_ann_model(X, y)  # Train the ANN model
-    current_app.logger.info("AI model initialized successfully.")
-except Exception as e:
-    current_app.logger.error(f"Error initializing AI model: {e}")
+def get_ann_model():
+    global ann_model
+    if ann_model is None:
+        ann_model = PathfinderANN()
+        ann_model.load_model()
+    return ann_model
 
-# Route for the home page
-@main.route('/')
-def home():
-    return render_template('home.html')  # Render 'home.html' template
+# Web Routes (HTML Templates)
+@bp.route('/', methods=['GET'])
+def homepage():
+    return render_template('home.html')
 
-# Route for the search page with AI-enhanced suggestions
-@main.route('/search', methods=['GET', 'POST'])
-def search():
-    if request.method == 'POST':
-        try:
-            # Log form data for debugging
-            current_app.logger.info(f"Form Data: {request.form}")
-
-            # Get inputs from the user
-            location = request.form.get('location')
-            proximity = float(request.form.get('proximity'))
-
-            # Validate input
-            if not location or not proximity:
-                raise ValueError("All fields are required.")
-
-            # Fetch location coordinates using Google Maps API
-            coordinates = get_location_coordinates(location)
-
-            # Fetch and preprocess routes for the given location
-            routes_df = fetch_route_data(coordinates, proximity)
-            X, _, _ = preprocess_data(routes_df)
-
-            # Use the ANN model to predict route quality
-            predictions = ann_model.predict(X).flatten()
-            routes_df['score'] = predictions  # Add scores to DataFrame
-
-            # Select top 10 routes
-            top_routes = routes_df.nlargest(10, 'score').to_dict(orient='records')
-
-            # Render search results with AI suggestions
-            return render_template('search_results.html', routes=top_routes)
-
-        except ValueError as ve:
-            current_app.logger.error(f"Validation Error: {ve}")
-            return render_template('search.html', error_message=str(ve)), 400
-
-        except Exception as e:
-            current_app.logger.error(f"Unexpected Error: {e}")
-            return render_template('search.html', error_message="An unexpected error occurred."), 500
-
-    # If GET request, render the search page
+@bp.route('/search', methods=['GET'])
+def search_page():
     return render_template('search.html')
 
-# Utility function to fetch coordinates from Google Maps API
-def get_location_coordinates(location_name):
-    url = f"https://maps.googleapis.com/maps/api/geocode/json?address={location_name}&key={GOOGLE_MAPS_API_KEY}"
-    response = requests.get(url).json()
-
-    if response['status'] != 'OK':
-        raise ValueError("Invalid location")
-
-    loc = response['results'][0]['geometry']['location']
-    return {'lat': loc['lat'], 'lng': loc['lng']}
-
-# Route for showing search results (for pre-generated or mock data)
-@main.route('/search_results')
-def search_results():
-    routes = [{'name': 'Route 1', 'latitude': 38.897957, 'longitude': -77.036560, 'distance': 5}]
-    routes_json = json.dumps(routes)
-    return render_template('search_results.html', routes_json=routes_json)
-
-# Route to handle user preferences
-@main.route('/preferences', methods=['GET', 'POST'])
-def preferences():
-    if request.method == 'POST':
-        user_id = request.form['user_id']
-        route_type = request.form['route_type']
-
-        # Save preferences to the database
-        save_preferences(user_id, route_type)
-        return 'Preferences Saved!'
-
+@bp.route('/preferences', methods=['GET'])
+def preferences_page():
     return render_template('preferences.html')
 
-# Route to handle user feedback submission
-@main.route('/feedback', methods=['POST'])
-def feedback():
-    route_id = request.form['route_id']
-    user_id = request.form['user_id']
-    rating = request.form['rating']
-    comment = request.form['comment']
-
-    # Save feedback to the database
-    submit_feedback(route_id, user_id, rating, comment)
-    return 'Feedback Received!'
-
-# Route to display the details of a specific route
-@main.route('/route/<int:route_id>')
-def route_detail(route_id):
+@bp.route('/route/<int:route_id>', methods=['GET'])
+def route_detail_page(route_id):
     route = get_route_details(route_id)
+    if not route:
+        return render_template('404.html'), 404
     return render_template('route_detail.html', route=route)
+
+@bp.route('/search-results', methods=['GET'])
+def search_results_page():
+    return render_template('search_results.html')
+
+# API Routes (JSON Responses)
+@bp.route('/api/routes/search', methods=['GET'])
+def api_search():
+    try:
+        latitude = request.args.get('latitude', type=float)
+        longitude = request.args.get('longitude', type=float)
+        max_distance = request.args.get('max_distance', type=float)
+        route_type = request.args.get('route_type', type=str)
+        elevation_preference = request.args.get('elevation_preference', type=str)
+
+        if not all([latitude, longitude, max_distance]):
+            return jsonify({
+                'error': 'Missing required parameters: latitude, longitude, max_distance'
+            }), 400
+
+        routes = search_routes(latitude, longitude, max_distance, route_type, elevation_preference)
+        model = get_ann_model()
+        
+        route_list = []
+        for route in routes:
+            try:
+                features = prepare_route_features({
+                    'distance': float(route.distance),
+                    'elevation_gain': float(route.elevation_gain) if route.elevation_gain else 0,
+                    'traffic_level': 0.5,  # Default values for missing features
+                    'surface_quality': 0.7,
+                    'safety_score': 0.8
+                })
+                quality_score = float(model.predict_route_quality(features)[0][0])
+            except Exception as e:
+                quality_score = None
+                
+            route_list.append({
+                'id': route.id,
+                'name': route.name,
+                'distance': float(route.distance),
+                'latitude': float(route.latitude),
+                'longitude': float(route.longitude),
+                'elevation_gain': float(route.elevation_gain) if route.elevation_gain else None,
+                'average_rating': route.average_rating,
+                'quality_score': quality_score
+            })
+        
+        return jsonify(route_list)
+
+    except ValueError as e:
+        return jsonify({'error': 'Invalid parameter format'}), 400
+    except SQLAlchemyError as e:
+        return jsonify({'error': 'Database error occurred'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/api/routes/<int:route_id>', methods=['GET'])
+def api_route_details(route_id):
+    try:
+        route = get_route_details(route_id)
+        if not route:
+            return jsonify({'error': 'Route not found'}), 404
+            
+        model = get_ann_model()
+        try:
+            features = prepare_route_features({
+                'distance': float(route['distance']),
+                'elevation_gain': float(route['elevation_gain']) if route['elevation_gain'] else 0,
+                'traffic_level': 0.5,
+                'surface_quality': 0.7,
+                'safety_score': 0.8
+            })
+            route['quality_score'] = float(model.predict_route_quality(features)[0][0])
+        except Exception as e:
+            route['quality_score'] = None
+            
+        return jsonify(route)
+
+    except SQLAlchemyError as e:
+        return jsonify({'error': 'Database error occurred'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/api/preferences', methods=['POST'])
+def api_preferences():
+    try:
+        data = request.get_json()
+        required_fields = ['user_id', 'route_type', 'elevation_preference', 
+                         'surface_preference', 'traffic_preference', 'crowd_preference']
+        
+        if not all(field in data for field in required_fields):
+            return jsonify({'error': 'Missing required fields'}), 400
+
+        save_preferences(
+            user_id=data['user_id'],
+            route_type=data['route_type'],
+            elevation_preference=data['elevation_preference'],
+            surface_preference=data['surface_preference'],
+            traffic_preference=data['traffic_preference'],
+            crowd_preference=data['crowd_preference']
+        )
+        return jsonify({'message': 'Preferences saved successfully'})
+
+    except SQLAlchemyError as e:
+        return jsonify({'error': 'Database error occurred'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@bp.route('/api/feedback', methods=['POST'])
+def api_feedback():
+    try:
+        data = request.get_json()
+        required_fields = ['route_id', 'user_id', 'rating']
+        
+        if not all(field in data for field in required_fields):
+            return jsonify({'error': 'Missing required fields'}), 400
+            
+        if not isinstance(data['rating'], int) or not 1 <= data['rating'] <= 5:
+            return jsonify({'error': 'Rating must be an integer between 1 and 5'}), 400
+
+        submit_feedback(
+            route_id=data['route_id'],
+            user_id=data['user_id'],
+            rating=data['rating'],
+            comment=data.get('comment')
+        )
+        return jsonify({'message': 'Feedback submitted successfully'})
+
+    except SQLAlchemyError as e:
+        return jsonify({'error': 'Database error occurred'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400

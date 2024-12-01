@@ -1,41 +1,142 @@
-<!-- This file allows users to set and save their route preferences.
-     It contains a form that collects the user ID and preferred route type.
-     The form submits the data to the backend for storage in the database.
--->
+{% extends "base.html" %}
 
-<!DOCTYPE html>  <!-- Specifies the document type as HTML5. -->
-<html lang="en">  <!-- Defines the language of the page as English. -->
+{% block title %}PathFinder - Set Your Preferences{% endblock %}
 
-<head>
-    <meta charset="UTF-8">  <!-- Sets the character encoding to UTF-8, ensuring the page supports all text characters. -->
-    <title>Route Preferences</title>  <!-- Sets the title of the page, which appears on the browser tab. -->
+{% block content %}
+<div class="preferences-container">
+    <div class="preferences-card">
+        <h1 class="text-center mb-4">Set Your Route Preferences</h1>
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <!-- Links to the external CSS file for styling the page. 
-         The 'url_for' function dynamically generates the correct URL for the stylesheet. -->
-</head>
+        <form id="preferences-form" class="preferences-form">
+            <section class="form-section">
+                <h3>Basic Preferences</h3>
+                
+                <div class="form-group">
+                    <label class="form-label">Preferred Route Type</label>
+                    <div class="btn-group" role="group">
+                        <input type="radio" id="type-road" name="route_type" value="road" 
+                               {% if preferences.route_type == 'road' %}checked{% endif %}>
+                        <label for="type-road" class="btn btn-outline-primary">Road Running</label>
+                        
+                        <input type="radio" id="type-trail" name="route_type" value="trail"
+                               {% if preferences.route_type == 'trail' %}checked{% endif %}>
+                        <label for="type-trail" class="btn btn-outline-primary">Trail Running</label>
+                        
+                        <input type="radio" id="type-mixed" name="route_type" value="mixed"
+                               {% if preferences.route_type == 'mixed' %}checked{% endif %}>
+                        <label for="type-mixed" class="btn btn-outline-primary">Mixed Terrain</label>
+                    </div>
+                </div>
 
-<body>
-    <h1>Set Your Route Preferences</h1>  <!-- A header that invites the user to set route preferences. -->
+                <div class="form-group">
+                    <label class="form-label">Elevation Preference</label>
+                    <select name="elevation_preference" class="form-control">
+                        <option value="flat" {% if preferences.elevation_preference == 'flat' %}selected{% endif %}>
+                            Flat Routes
+                        </option>
+                        <option value="moderate" {% if preferences.elevation_preference == 'moderate' %}selected{% endif %}>
+                            Moderate Hills
+                        </option>
+                        <option value="challenging" {% if preferences.elevation_preference == 'challenging' %}selected{% endif %}>
+                            Challenging Climbs
+                        </option>
+                    </select>
+                </div>
+            </section>
 
-    <!-- This form allows users to input their user ID and preferred route type. 
-         It submits the data using a POST request to the '/preferences' route. -->
-    <form action="{{ url_for('main.preferences') }}" method="post">
-        <!-- Label and input for the user to enter their ID. -->
-        <label for="user_id">User ID:</label>
-        <input type="text" id="user_id" name="user_id">
+            <section class="form-section">
+                <h3>Surface & Environment</h3>
+                
+                <div class="form-group">
+                    <label class="form-label">Preferred Surface</label>
+                    <select name="surface_preference" class="form-control">
+                        <option value="asphalt" {% if preferences.surface_preference == 'asphalt' %}selected{% endif %}>
+                            Asphalt/Pavement
+                        </option>
+                        <option value="dirt" {% if preferences.surface_preference == 'dirt' %}selected{% endif %}>
+                            Dirt/Trail
+                        </option>
+                        <option value="grass" {% if preferences.surface_preference == 'grass' %}selected{% endif %}>
+                            Grass/Park Paths
+                        </option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Traffic Preference</label>
+                    <select name="traffic_preference" class="form-control">
+                        <option value="avoid" {% if preferences.traffic_preference == 'avoid' %}selected{% endif %}>
+                            Avoid High Traffic
+                        </option>
+                        <option value="neutral" {% if preferences.traffic_preference == 'neutral' %}selected{% endif %}>
+                            No Preference
+                        </option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Crowd Preference</label>
+                    <select name="crowd_preference" class="form-control">
+                        <option value="quiet" {% if preferences.crowd_preference == 'quiet' %}selected{% endif %}>
+                            Quiet/Isolated Routes
+                        </option>
+                        <option value="social" {% if preferences.crowd_preference == 'social' %}selected{% endif %}>
+                            Social/Populated Areas
+                        </option>
+                    </select>
+                </div>
+            </section>
+
+            <section class="form-section">
+                <h3>Safety Features</h3>
+                
+                <div class="form-group">
+                    <label class="form-checkbox">
+                        <input type="checkbox" name="require_lighting" 
+                               {% if preferences.require_lighting %}checked{% endif %}>
+                        Prefer well-lit routes
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-checkbox">
+                        <input type="checkbox" name="require_sidewalks"
+                               {% if preferences.require_sidewalks %}checked{% endif %}>
+                        Require sidewalks/pedestrian paths
+                    </label>
+                </div>
+            </section>
+
+            <button type="submit" class="btn btn-primary w-100">Save Preferences</button>
+            <a href="{{ url_for('routes.search_page') }}" class="btn btn-outline-secondary w-100 mt-2">Back to Search</a>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('preferences-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    
+    try {
+        const response = await fetch('/api/preferences', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(Object.fromEntries(formData))
+        });
         
-        <!-- Label and input for the user to enter their preferred route type. -->
-        <label for="route_type">Preferred Route Type:</label>
-        <input type="text" id="route_type" name="route_type">
+        if (!response.ok) throw new Error('Failed to save preferences');
         
-        <!-- Submit button for saving preferences. -->
-        <input type="submit" value="Save Preferences">
-    </form>
-
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
-    <!-- Links to the external JavaScript file (app.js) that handles front-end behavior.
-         The 'url_for' function dynamically generates the correct URL for the script. -->
-</body>
-
-</html>
+        window.location.href = "{{ url_for('routes.search_page') }}";
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to save preferences. Please try again.');
+    }
+});
+</script>
+{% endblock %}

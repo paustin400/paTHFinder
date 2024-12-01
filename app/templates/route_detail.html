@@ -1,37 +1,107 @@
-<!-- This file displays detailed information about a specific running route.
-     It shows route attributes like name, description, distance, and elevation gain.
-     It pulls the data dynamically from the database when a user selects a route.
--->
+{% extends "base.html" %}
 
-<!DOCTYPE html>  <!-- Specifies the document type as HTML5. -->
-<html lang="en">  <!-- Defines the language of the page as English. -->
+{% block title %}PathFinder - {{ route.name }}{% endblock %}
 
-<head>
-    <meta charset="UTF-8">  <!-- Sets the character encoding to UTF-8, ensuring the page supports all text characters. -->
-    <title>Route Details</title>  <!-- Sets the title of the page, which appears on the browser tab. -->
-</head>
+{% block head %}
+<script src="https://maps.googleapis.com/maps/api/js?key={{ api_key }}&callback=initMap" async defer></script>
+{% endblock %}
 
-<body>
-    <h1>Route Details</h1>  <!-- A header indicating that this page shows route details. -->
+{% block content %}
+<div id="map-container">
+    <div id="sidebar" class="floating-panel">
+        <header class="route-header">
+            <h2>{{ route.name }}</h2>
+            {% if predictions.quality_score %}
+            <div class="quality-score">
+                <span class="score">{{ "%.1f"|format(predictions.quality_score * 100) }}%</span>
+                <span class="label">Match</span>
+            </div>
+            {% endif %}
+        </header>
 
-    <!-- Displays the name of the route dynamically using Flask template variables. -->
-    <p><strong>Name:</strong> {{ route.name }}</p>  
+        <div class="route-stats">
+            <div class="stat-item">
+                <span class="icon">📏</span>
+                <span class="label">Distance</span>
+                <span class="value">{{ "%.1f"|format(route.distance) }} km</span>
+            </div>
+
+            {% if route.elevation_gain %}
+            <div class="stat-item">
+                <span class="icon">⛰️</span>
+                <span class="label">Elevation Gain</span>
+                <span class="value">{{ "%.1f"|format(route.elevation_gain) }}m</span>
+            </div>
+            {% endif %}
+
+            {% if predictions.difficulty_score %}
+            <div class="stat-item">
+                <span class="icon">📊</span>
+                <span class="label">Difficulty</span>
+                <span class="value">{{ "%.1f"|format(predictions.difficulty_score * 100) }}%</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <section class="route-description">
+            <h3>Description</h3>
+            <p>{{ route.description }}</p>
+        </section>
+
+        {% if route.feedback %}
+        <section class="route-feedback">
+            <h3>User Feedback</h3>
+            {% for feedback in route.feedback %}
+            <div class="feedback-item">
+                <div class="rating">
+                    {% for _ in range(feedback.rating) %}⭐{% endfor %}
+                </div>
+                {% if feedback.comment %}
+                <p class="comment">{{ feedback.comment }}</p>
+                {% endif %}
+                <div class="feedback-date">
+                    {{ feedback.created_at.strftime('%Y-%m-%d %H:%M') }}
+                </div>
+            </div>
+            {% endfor %}
+        </section>
+        {% endif %}
+
+        <section class="add-feedback">
+            <h3>Add Your Feedback</h3>
+            <form id="feedback-form" class="feedback-form">
+                <div class="form-group">
+                    <label class="form-label">Rating</label>
+                    <div class="star-rating">
+                        {% for i in range(5, 0, -1) %}
+                        <input type="radio" id="star{{ i }}" name="rating" value="{{ i }}">
+                        <label for="star{{ i }}">★</label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="comment">Comment (optional)</label>
+                    <textarea id="comment" name="comment" class="form-control" rows="3"></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100">Submit Feedback</button>
+            </form>
+        </section>
+
+        <div class="action-buttons">
+            <a href="{{ url_for('main.search_page') }}" class="btn btn-secondary">Back to Search</a>
+            <a href="{{ url_for('main.download_gpx', route_id=route.id) }}" class="btn btn-primary">Download GPX</a>            
+                Download GPX
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div id="map"></div>
     
-    <!-- Displays the description of the route dynamically. -->
-    <p><strong>Description:</strong> {{ route.description }}</p>  
-    
-    <!-- Displays the distance of the route dynamically, followed by "km". -->
-    <p><strong>Distance:</strong> {{ route.distance }} km</p>  
-    
-    <!-- Displays the elevation gain of the route dynamically, followed by "meters". -->
-    <p><strong>Elevation Gain:</strong> {{ route.elevation_gain }} meters</p>  
-    
-    <!-- A link that takes the user back to the home page. -->
-    <a href="{{ url_for('main.home') }}">Back to Home</a>
-
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
-    <!-- Links to an external JavaScript file (app.js) for any front-end behavior.
-         The 'url_for' function dynamically generates the correct URL for the script. -->
-</body>
-
-</html>
+    <button id="toggle-sidebar" class="toggle-btn" aria-label="Toggle Sidebar">
+        ☰
+    </button>
+</div>
+{% endblock %}
