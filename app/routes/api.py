@@ -1,19 +1,49 @@
-# app/routes/api.py
 from flask import Blueprint, request, jsonify, current_app
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from marshmallow import Schema, fields, validate, ValidationError
+from bleach import clean
 from app.models import db, Route, Preference, Feedback
-from app.ml.model_coordinator import ModelCoordinator
 from functools import wraps
 from typing import Dict, Any
 import logging
 
-api_bp = Blueprint('api', __name__)
+bp = Blueprint('api', __name__, url_prefix='/api')
 logger = logging.getLogger(__name__)
+
+# Initialize the rate limiter; it will be attached to the app later.
+limiter = Limiter(
+    get_remote_address,
+    app=None,
+    default_limits=["200 per day", "50 per hour"]
+)
+
+class RouteSearchSchema(Schema):
+    latitude = fields.Float(required=True, validate=validate.Range(min=-90, max=90))
+    longitude = fields.Float(required=True, validate=validate.Range(min=-180, max=180))
+    max_distance = fields.Float(required=True, validate=validate.Range(min=0, max=100))
+    route_type = fields.String(validate=validate.OneOf(['road', 'trail', 'mixed']))
+    elevation_preference = fields.String(validate=validate.OneOf(['flat', 'moderate', 'challenging']))
+
+class FeedbackSchema(Schema):
+    route_id = fields.Integer(required=True, validate=validate.Range(min=1))
+    user_id = fields.Integer(required=True, validate=validate.Range(min=1))
+    rating = fields.Integer(required=True, validate=validate.Range(min=1, max=5))
+    comment = fields.String(validate=validate.Length(max=1000))
+
+search_schema = RouteSearchSchema()
+feedback_schema = FeedbackSchema()
+
+def sanitize_text(text: str) -> str:
+    return clean(text, strip=True)
 
 def handle_errors(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
         try:
             return f(*args, **kwargs)
+        except ValidationError as e:
+            return jsonify({'error': 'Validation error', 'details': e.messages}), 400
         except Exception as e:
             logger.error(f"Error in {f.__name__}: {str(e)}")
             return jsonify({
@@ -22,108 +52,75 @@ def handle_errors(f):
             }), 500
     return wrapper
 
-@api_bp.route('/routes/search', methods=['GET'])
+@bp.route('/routes/search', methods=['GET'])
 @handle_errors
+@limiter.limit("1 per second")
 def search_routes():
-    # Get search parameters
-    params = {
-        'latitude': request.args.get('latitude', type=float),
-        'longitude': request.args.get('longitude', type=float),
-        'max_distance': request.args.get('max_distance', type=float),
-        'route_type': request.args.get('route_type'),
-        'elevation_preference': request.args.get('elevation_preference')
-    }
-    
-    # Validate required parameters
-    if not all([params['latitude'], params['longitude'], params['max_distance']]):
-        return jsonify({
-            'error': 'Missing required parameters: latitude, longitude, max_distance'
-        }), 400
+    # Validate and load the query parameters.
+    params = search_schema.load(request.args)
+    user_preferences = get_user_preferences()
+    model_coordinator = current_app.model_coordinator
 
-    # Get user preferences and model predictions
-    try:
-        user_preferences = get_user_preferences()
-        model_coordinator = current_app.model_coordinator
-        routes = Route.search_nearby(**params)
-        
-        enriched_routes = []
-        for route in routes:
-            try:
-                predictions = model_coordinator.get_route_predictions(
-                    route.id,
-                    user_preferences
-                )
-                route_data = route.to_dict()
-                route_data.update(predictions)
-                enriched_routes.append(route_data)
-            except Exception as e:
-                logger.error(f"Error enriching route {route.id}: {str(e)}")
-                continue
-        
-        return jsonify(enriched_routes)
-        
-    except Exception as e:
-        logger.error(f"Error in route search: {e}")
-        raise
+    # Find nearby routes based on the search parameters.
+    routes = Route.search_nearby(**params)
+    enriched_routes = []
+    for route in routes:
+        try:
+            predictions = model_coordinator.get_route_predictions(route.id, user_preferences)
+            route_data = route.to_dict()
+            route_data.update(predictions)
+            enriched_routes.append(route_data)
+        except Exception as e:
+            logger.error(f"Error enriching route {route.id}: {str(e)}")
+            continue
 
-@api_bp.route('/routes/<int:route_id>', methods=['GET'])
+    return jsonify(enriched_routes)
+
+@bp.route('/routes/<int:route_id>', methods=['GET'])
 @handle_errors
+@limiter.limit("1 per second")
 def get_route_details(route_id: int):
-    route = Route.query.get_or_404(route_id)
-    
-    try:
-        user_preferences = get_user_preferences()
-        model_coordinator = current_app.model_coordinator
-        predictions = model_coordinator.get_route_predictions(
-            route_id,
-            user_preferences
-        )
-        
-        route_data = route.to_dict()
-        route_data.update(predictions)
-        
-        return jsonify(route_data)
-    except Exception as e:
-        logger.error(f"Error getting route details for {route_id}: {e}")
-        raise
+    # Basic check for a valid route_id.
+    if route_id < 1:
+        return jsonify({'error': 'Invalid route ID'}), 400
 
-@api_bp.route('/feedback', methods=['POST'])
+    route = Route.query.get_or_404(route_id)
+    user_preferences = get_user_preferences()
+    model_coordinator = current_app.model_coordinator
+
+    predictions = model_coordinator.get_route_predictions(route_id, user_preferences)
+    route_data = route.to_dict()
+    route_data.update(predictions)
+
+    return jsonify(route_data)
+
+@bp.route('/feedback', methods=['POST'])
 @handle_errors
+@limiter.limit("1 per second")
 def submit_feedback():
-    data = request.get_json()
-    
-    # Validate input
-    required_fields = ['route_id', 'user_id', 'rating']
-    if not all(field in data for field in required_fields):
-        return jsonify({'error': 'Missing required fields'}), 400
-    
-    if not isinstance(data['rating'], int) or not 1 <= data['rating'] <= 5:
-        return jsonify({'error': 'Rating must be an integer between 1 and 5'}), 400
-    
-    try:
-        # Save feedback
-        feedback = Feedback(
-            route_id=data['route_id'],
-            user_id=data['user_id'],
-            rating=data['rating'],
-            comment=data.get('comment')
-        )
-        
-        db.session.add(feedback)
-        db.session.commit()
-        
-        # Update model predictions cache
-        model_coordinator = current_app.model_coordinator
+    data = feedback_schema.load(request.get_json())
+
+    if 'comment' in data:
+        data['comment'] = sanitize_text(data['comment'])
+
+    feedback = Feedback(
+        route_id=data['route_id'],
+        user_id=data['user_id'],
+        rating=data['rating'],
+        comment=data.get('comment')
+    )
+    db.session.add(feedback)
+    db.session.commit()
+
+    model_coordinator = current_app.model_coordinator
+    # Clear any cached predictions if the method supports it.
+    if hasattr(model_coordinator.get_route_predictions, "cache_clear"):
         model_coordinator.get_route_predictions.cache_clear()
-        
-        return jsonify({'message': 'Feedback submitted successfully'})
-    except Exception as e:
-        logger.error(f"Error submitting feedback: {e}")
-        raise
+
+    return jsonify({'message': 'Feedback submitted successfully'})
 
 def get_user_preferences() -> Dict[str, Any]:
-    """Get current user preferences or defaults"""
-    # TODO: Implement user authentication and get actual user preferences
+    """Return current user preferences or default values."""
     return {
         'traffic_preference': 'neutral',
         'surface_preference': 'asphalt',
@@ -131,16 +128,11 @@ def get_user_preferences() -> Dict[str, Any]:
         'require_sidewalks': True
     }
 
-# Initialize model coordinator
 def init_api_routes(app):
-    with app.app_context():
-        try:
-            app.model_coordinator = ModelCoordinator()
-            success = app.model_coordinator.initialize_models()
-            if not success:
-                logger.error("Failed to initialize model coordinator")
-                raise RuntimeError("Model coordinator initialization failed")
-            logger.info("Model coordinator initialized successfully")
-        except Exception as e:
-            logger.error(f"Error initializing model coordinator: {str(e)}")
-            raise
+    """
+    Initialize the API routes and rate limiter for the Flask app.
+    Note: Model coordinator initialization is handled in app/__init__.py.
+    """
+    app.register_blueprint(bp)
+    limiter.init_app(app)
+    app.logger.info("API routes initialized successfully")

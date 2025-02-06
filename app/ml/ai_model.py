@@ -1,5 +1,3 @@
-# app/ml/ai_model.py
-
 import os
 import numpy as np
 import pandas as pd
@@ -10,6 +8,20 @@ from typing import Dict, Optional, Any
 import logging
 from datetime import datetime
 from .config import ModelConfig
+
+logger = logging.getLogger(__name__)
+
+def init_ai_model():
+    """Initialize the AI model for the application."""
+    try:
+        model = PathfinderAI()
+        success = model.init_models()
+        if not success:
+            raise RuntimeError("Failed to initialize PathfinderAI model")
+        return model
+    except Exception as e:
+        logger.error(f"Error initializing AI model: {str(e)}")
+        raise
 
 class PathfinderAI:
     def __init__(self):
@@ -23,7 +35,7 @@ class PathfinderAI:
         self.required_features = ModelConfig.REQUIRED_FEATURES
         
     def init_models(self) -> bool:
-        """Initialize or load ML models with validation"""
+        """Initialize or load ML models with validation."""
         try:
             if os.path.exists(self.model_path):
                 models = joblib.load(self.model_path)
@@ -38,13 +50,12 @@ class PathfinderAI:
             self.route_classifier = RandomForestClassifier(**ModelConfig.RF_CLASSIFIER_PARAMS)
             self.difficulty_predictor = GradientBoostingRegressor(**ModelConfig.GB_REGRESSOR_PARAMS)
             return True
-            
         except Exception as e:
             self.logger.error(f"Error initializing models: {str(e)}")
             return False
 
     def validate_models(self) -> bool:
-        """Validate loaded models"""
+        """Validate the loaded models using test data."""
         try:
             # Create test data
             test_data = pd.DataFrame([{
@@ -55,7 +66,7 @@ class PathfinderAI:
                 'surface_type': 'asphalt'
             }])
             
-            # Test feature preparation
+            # Test feature preparation using our method
             features = self.prepare_route_features(test_data.iloc[0])
             if features.empty:
                 raise ValueError("Failed to prepare test features")
@@ -74,11 +85,13 @@ class PathfinderAI:
             return False
 
     def prepare_route_features(self, route: Any) -> pd.DataFrame:
-        """Prepare and validate features for model prediction"""
+        """Prepare and validate features for model prediction.
+        
+        Expects `route` to have attributes matching the required features.
+        """
         try:
-            # Validate required features
-            missing_features = [f for f in self.required_features 
-                              if not hasattr(route, f)]
+            # Check for required features
+            missing_features = [f for f in self.required_features if not hasattr(route, f)]
             if missing_features:
                 raise ValueError(f"Missing required features: {missing_features}")
             
@@ -92,29 +105,23 @@ class PathfinderAI:
             
             # One-hot encode categorical variables
             if 'surface_type' in features:
-                features = pd.get_dummies(
-                    features, 
-                    columns=['surface_type'], 
-                    prefix=['surface']
-                )
+                features = pd.get_dummies(features, columns=['surface_type'], prefix=['surface'])
             
-            # If models are trained, ensure all expected columns exist
+            # Ensure all expected columns exist if the classifier has been trained
             if self.route_classifier and hasattr(self.route_classifier, 'feature_names_in_'):
                 expected_columns = self.route_classifier.feature_names_in_
                 for col in expected_columns:
                     if col not in features:
                         features[col] = 0
-                # Reorder columns to match training data
                 features = features[expected_columns]
             
             return features
-            
         except Exception as e:
             self.logger.error(f"Error preparing features: {str(e)}")
             return pd.DataFrame()
 
     def predict_route_properties(self, features: pd.DataFrame) -> Dict[str, Any]:
-        """Make predictions using both models with validation"""
+        """Make predictions using both the classifier and regressor."""
         try:
             if features.empty:
                 raise ValueError("Empty features provided")
@@ -122,7 +129,7 @@ class PathfinderAI:
             if not self.route_classifier or not self.difficulty_predictor:
                 raise ValueError("Models not initialized")
 
-            # Scale numerical features if they exist
+            # Scale numerical features if present
             numerical_cols = ['distance', 'elevation_gain']
             numerical_cols = [col for col in numerical_cols if col in features.columns]
             if numerical_cols:
@@ -135,9 +142,7 @@ class PathfinderAI:
                 'model_version': self.model_version,
                 'prediction_timestamp': datetime.utcnow().isoformat()
             }
-            
             return predictions
-            
         except Exception as e:
             self.logger.error(f"Error making predictions: {str(e)}")
             return {
@@ -150,7 +155,7 @@ class PathfinderAI:
             }
 
     def train(self, X: pd.DataFrame, y: Dict[str, np.ndarray], validation_split: float = 0.2) -> bool:
-        """Train both models with validation data"""
+        """Train both models with validation data."""
         try:
             if X.empty or not y or 'route_type' not in y or 'difficulty' not in y:
                 raise ValueError("Invalid training data")
@@ -159,30 +164,30 @@ class PathfinderAI:
             if 'surface_type' in X:
                 X = pd.get_dummies(X, columns=['surface_type'], prefix=['surface'])
                 
-            # Scale features
+            # Scale numerical features
             numerical_cols = ['distance', 'elevation_gain']
             numerical_cols = [col for col in numerical_cols if col in X.columns]
             if numerical_cols:
                 X[numerical_cols] = self.scaler.fit_transform(X[numerical_cols])
             
-            # Split data for validation
+            # Split data for training/validation
             split_idx = int(len(X) * (1 - validation_split))
             X_train, X_val = X[:split_idx], X[split_idx:]
             y_train_type, y_val_type = y['route_type'][:split_idx], y['route_type'][split_idx:]
             y_train_diff, y_val_diff = y['difficulty'][:split_idx], y['difficulty'][split_idx:]
             
-            # Initialize or reset models if needed
+            # Initialize models if needed
             if self.route_classifier is None:
                 self.route_classifier = RandomForestClassifier(**ModelConfig.RF_CLASSIFIER_PARAMS)
             if self.difficulty_predictor is None:
                 self.difficulty_predictor = GradientBoostingRegressor(**ModelConfig.GB_REGRESSOR_PARAMS)
             
-            # Train classifier
+            # Train the classifier
             self.logger.info("Training Random Forest classifier...")
             self.route_classifier.fit(X_train, y_train_type)
             classifier_score = self.route_classifier.score(X_val, y_val_type)
             
-            # Train regressor
+            # Train the regressor
             self.logger.info("Training Gradient Boosting regressor...")
             self.difficulty_predictor.fit(X_train, y_train_diff)
             regressor_score = self.difficulty_predictor.score(X_val, y_val_diff)
@@ -193,18 +198,16 @@ class PathfinderAI:
             self.model_version = f"1.1.{int(datetime.utcnow().timestamp())}"
             
             return self.save_models()
-            
         except Exception as e:
             self.logger.error(f"Error training models: {str(e)}")
             return False
 
     def save_models(self) -> bool:
-        """Save trained models with metadata"""
+        """Save the trained models along with metadata."""
         try:
             if not (self.route_classifier and self.difficulty_predictor):
                 raise ValueError("Models not initialized")
                 
-            # Create directory if it doesn't exist
             os.makedirs(os.path.dirname(self.model_path), exist_ok=True)
             
             models = {
@@ -216,7 +219,6 @@ class PathfinderAI:
                 'feature_names': list(self.route_classifier.feature_names_in_) if hasattr(self.route_classifier, 'feature_names_in_') else []
             }
             
-            # Save with backup
             backup_path = f"{self.model_path}.backup"
             if os.path.exists(self.model_path):
                 os.rename(self.model_path, backup_path)
@@ -228,16 +230,14 @@ class PathfinderAI:
                 os.remove(backup_path)
                 
             return True
-            
         except Exception as e:
             self.logger.error(f"Error saving models: {str(e)}")
-            # Restore backup if available
             if os.path.exists(f"{self.model_path}.backup"):
                 os.rename(f"{self.model_path}.backup", self.model_path)
             return False
 
     def get_model_info(self) -> Dict[str, Any]:
-        """Get model information and metadata"""
+        """Retrieve model metadata and initialization info."""
         return {
             'version': self.model_version,
             'last_training_date': self.last_training_date.isoformat() if self.last_training_date else None,

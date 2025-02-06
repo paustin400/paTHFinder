@@ -14,7 +14,14 @@ from tests.config import TestConfig
 import logging
 
 # Set up logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('model_tests.log'),
+        logging.StreamHandler()
+    ]
+)
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope="session", autouse=True)
@@ -83,6 +90,39 @@ def sample_training_data():
         'ann_features': ann_features,
         'ann_labels': ann_labels
     }
+
+@pytest.fixture
+def diverse_test_routes():
+    """Generate a diverse set of test routes"""
+    return [
+        {
+            'id': 1,
+            'distance': 5.0,
+            'elevation_gain': 100.0,
+            'has_sidewalks': 1,
+            'is_lit': 1,
+            'surface_type': 'asphalt',
+            'description': 'Easy urban route'
+        },
+        {
+            'id': 2,
+            'distance': 12.0,
+            'elevation_gain': 400.0,
+            'has_sidewalks': 0,
+            'is_lit': 0,
+            'surface_type': 'dirt',
+            'description': 'Challenging trail'
+        },
+        {
+            'id': 3,
+            'distance': 8.0,
+            'elevation_gain': 200.0,
+            'has_sidewalks': 1,
+            'is_lit': 0,
+            'surface_type': 'grass',
+            'description': 'Moderate park route'
+        }
+    ]
 
 class TestANNModel:
     """Test suite for PathfinderANN model"""
@@ -164,7 +204,6 @@ class TestModelCoordinator:
         """Test full prediction pipeline"""
         with app.app_context():
             coordinator = ModelCoordinator()
-            # Initialize and train first
             assert coordinator.initialize_models()
             assert coordinator.update_models(sample_training_data)
             
@@ -202,6 +241,128 @@ class TestModelCoordinator:
             assert predictions.get('is_fallback') is True
             logger.info("Fallback behavior test passed")
 
+class TestPredictions:
+    """Test suite for model predictions"""
+    
+    def test_diverse_route_predictions(self, app, diverse_test_routes):
+        """Test predictions for different types of routes"""
+        with app.app_context():
+            coordinator = ModelCoordinator()
+            assert coordinator.initialize_models()
+            
+            for route_data in diverse_test_routes:
+                # Create mock route object
+                mock_route = MagicMock()
+                for key, value in route_data.items():
+                    setattr(mock_route, key, value)
+                
+                # Test with different user preferences
+                preferences = {
+                    'traffic_preference': 'neutral',
+                    'surface_preference': route_data['surface_type'],
+                    'require_lighting': bool(route_data['is_lit']),
+                    'require_sidewalks': bool(route_data['has_sidewalks'])
+                }
+                
+                with patch('app.models.Route.query') as mock_query:
+                    mock_query.get.return_value = mock_route
+                    predictions = coordinator.get_route_predictions(
+                        route_data['id'], 
+                        preferences
+                    )
+                
+                logger.info(f"\nPredictions for {route_data['description']}:")
+                logger.info(f"Route characteristics: {route_data}")
+                logger.info(f"Predictions: {predictions}")
+                
+                # Verify prediction structure and ranges
+                assert 'route_type' in predictions
+                assert 'difficulty_score' in predictions
+                assert 'quality_score' in predictions
+                assert 0 <= predictions['difficulty_score'] <= 1
+                assert 0 <= predictions['quality_score'] <= 1
+                assert predictions['route_type'] in ['easy', 'moderate', 'challenging']
+    
+    def test_prediction_consistency(self, app, mock_route):
+        """Test consistency of predictions"""
+        with app.app_context():
+            coordinator = ModelCoordinator()
+            assert coordinator.initialize_models()
+            
+            preferences = {
+                'traffic_preference': 'neutral',
+                'surface_preference': 'asphalt',
+                'require_lighting': True,
+                'require_sidewalks': True
+            }
+            
+            # Make multiple predictions for the same route
+            predictions = []
+            with patch('app.models.Route.query') as mock_query:
+                mock_query.get.return_value = mock_route
+                for _ in range(3):
+                    pred = coordinator.get_route_predictions(1, preferences)
+                    predictions.append(pred)
+            
+            # Verify predictions are consistent
+            for i in range(1, len(predictions)):
+                assert predictions[i]['route_type'] == predictions[0]['route_type']
+                assert abs(predictions[i]['difficulty_score'] - predictions[0]['difficulty_score']) < 1e-6
+                assert abs(predictions[i]['quality_score'] - predictions[0]['quality_score']) < 1e-6
+
+    def test_edge_cases(self, app):
+        """Test prediction behavior with edge cases"""
+        with app.app_context():
+            coordinator = ModelCoordinator()
+            assert coordinator.initialize_models()
+            
+            # Test edge case routes
+            edge_cases = [
+                {
+                    'id': 4,
+                    'distance': 0.1,  # Very short distance
+                    'elevation_gain': 0.0,
+                    'has_sidewalks': 1,
+                    'is_lit': 1,
+                    'surface_type': 'asphalt'
+                },
+                {
+                    'id': 5,
+                    'distance': 50.0,  # Very long distance
+                    'elevation_gain': 1000.0,
+                    'has_sidewalks': 0,
+                    'is_lit': 0,
+                    'surface_type': 'dirt'
+                }
+            ]
+            
+            for route_data in edge_cases:
+                mock_route = MagicMock()
+                for key, value in route_data.items():
+                    setattr(mock_route, key, value)
+                
+                preferences = {
+                    'traffic_preference': 'neutral',
+                    'surface_preference': route_data['surface_type'],
+                    'require_lighting': bool(route_data['is_lit']),
+                    'require_sidewalks': bool(route_data['has_sidewalks'])
+                }
+                
+                with patch('app.models.Route.query') as mock_query:
+                    mock_query.get.return_value = mock_route
+                    predictions = coordinator.get_route_predictions(
+                        route_data['id'],
+                        preferences
+                    )
+                
+                logger.info(f"\nEdge case predictions:")
+                logger.info(f"Route data: {route_data}")
+                logger.info(f"Predictions: {predictions}")
+                
+                # Verify predictions are still within valid ranges
+                assert 0 <= predictions['difficulty_score'] <= 1
+                assert 0 <= predictions['quality_score'] <= 1
+
 def test_end_to_end(app, sample_training_data, mock_route):
     """End-to-end test of the entire model pipeline"""
     with app.app_context():
@@ -213,7 +374,7 @@ def test_end_to_end(app, sample_training_data, mock_route):
         
         # Test predictions
         preferences = {
-            'traffic_preference': 'avoid',
+            'traffic_preference': 'neutral',
             'surface_preference': 'asphalt',
             'require_lighting': True,
             'require_sidewalks': True

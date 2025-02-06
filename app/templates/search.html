@@ -1,76 +1,71 @@
-{% extends "base.html" %}
+{% extends "map_base.html" %}
 
 {% block title %}PathFinder - Search Routes{% endblock %}
 
-{% block head %}
-<script src="https://maps.googleapis.com/maps/api/js?key={{ api_key }}&libraries=places&callback=initMap" async defer></script>
+{% block map_content %}
+  {{ super() }}
+  <!-- Sidebar container: includes the draggable, resizable sidebar -->
+  <div id="sidebar-container">
+    <div class="sidebar-toggle">&#9776;</div>
+    <div id="sidebar">
+      <h2 id="find-running-routes" class="text-center mb-4">Find Running Routes</h2>
+      <form id="search-form" class="needs-validation" novalidate>
+        <div class="mb-3">
+          <label for="location-input" class="form-label">Starting Location</label>
+          <div class="input-group">
+            <input type="text" id="location-input" class="form-control" placeholder="Enter location" required>
+            <button type="button" id="current-location" class="btn btn-outline-secondary">
+              <i class="fas fa-location-arrow"></i>
+            </button>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label for="proximity" class="form-label">Proximity (km)</label>
+          <input type="range" class="form-range" id="proximity" min="1" max="20" value="10" step="1">
+          <div id="proximity-value" class="text-center">10 km</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Route Type</label>
+          <div class="btn-group w-100" role="group" aria-label="Route Type">
+            <input type="radio" class="btn-check" name="route_type" id="type_road" value="road" autocomplete="off" checked>
+            <label class="btn btn-outline-primary" for="type_road">Road</label>
+            <input type="radio" class="btn-check" name="route_type" id="type_trail" value="trail" autocomplete="off">
+            <label class="btn btn-outline-primary" for="type_trail">Trail</label>
+            <input type="radio" class="btn-check" name="route_type" id="type_mixed" value="mixed" autocomplete="off">
+            <label class="btn btn-outline-primary" for="type_mixed">Mixed</label>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Elevation Preference</label>
+          <div class="btn-group-vertical w-100" role="group" aria-label="Elevation Preference">
+            <input type="radio" class="btn-check" name="elevation" id="elevation_flat" value="flat" autocomplete="off" checked>
+            <label class="btn btn-outline-primary" for="elevation_flat">Flat Routes</label>
+            <input type="radio" class="btn-check" name="elevation" id="elevation_moderate" value="moderate" autocomplete="off">
+            <label class="btn btn-outline-primary" for="elevation_moderate">Moderate Hills</label>
+            <input type="radio" class="btn-check" name="elevation" id="elevation_challenging" value="challenging" autocomplete="off">
+            <label class="btn btn-outline-primary" for="elevation_challenging">Challenging Climbs</label>
+          </div>
+        </div>
+        <div class="mb-3">
+          <div class="form-check">
+            <input type="checkbox" class="form-check-input" id="require_sidewalks">
+            <label class="form-check-label" for="require_sidewalks">Require sidewalks/pedestrian paths</label>
+          </div>
+        </div>
+        {% if ai_enabled %}
+        <div class="mb-3">
+          <div class="alert alert-info">
+            <i class="fas fa-robot"></i> AI-powered route recommendations enabled
+          </div>
+        </div>
+        {% endif %}
+        <button type="button" id="search-routes" class="btn btn-primary w-100">Search Routes</button>
+      </form>
+    </div>
+  </div>
 {% endblock %}
 
-{% block content %}
-<div id="map-container">
-    <div id="sidebar" class="floating-panel">
-        <h2 class="text-center mb-4">Find Running Routes</h2>
-        
-        <form id="search-form" class="search-form">
-            <div class="form-group">
-                <label class="form-label" for="location">Starting Location</label>
-                <div class="input-group">
-                    <input type="text" id="location" class="form-control" 
-                           placeholder="Enter location" required>
-                    <button type="button" id="current-location" class="btn btn-secondary">
-                        📍 Current Location
-                    </button>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">
-                    Proximity (km) <span id="proximity-value">10</span>
-                </label>
-                <input type="range" id="proximity" name="proximity" 
-                       min="1" max="20" value="10" class="form-range">
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Route Type</label>
-                <div class="btn-group" role="group">
-                    <input type="radio" id="type-road" name="route_type" value="road" checked>
-                    <label for="type-road" class="btn btn-outline-primary">Road</label>
-                    
-                    <input type="radio" id="type-trail" name="route_type" value="trail">
-                    <label for="type-trail" class="btn btn-outline-primary">Trail</label>
-                    
-                    <input type="radio" id="type-mixed" name="route_type" value="mixed">
-                    <label for="type-mixed" class="btn btn-outline-primary">Mixed</label>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Elevation Preference</label>
-                <select name="elevation_preference" class="form-control">
-                    <option value="flat">Flat Routes</option>
-                    <option value="moderate">Moderate Hills</option>
-                    <option value="challenging">Challenging Climbs</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label class="form-checkbox">
-                    <input type="checkbox" name="require_sidewalks">
-                    Require sidewalks/pedestrian paths
-                </label>
-            </div>
-
-            <button type="submit" class="btn btn-primary w-100">
-                Search Routes
-            </button>
-        </form>
-    </div>
-
-    <div id="map"></div>
-    
-    <button id="toggle-sidebar" class="toggle-btn" aria-label="Toggle Sidebar">
-        ☰
-    </button>
-</div>
+{% block scripts %}
+  {{ super() }}
+  <script src="{{ url_for('static', filename='js/search.js') }}" defer></script>
 {% endblock %}

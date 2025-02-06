@@ -1,107 +1,161 @@
-{% extends "base.html" %}
-
+{% extends "map_base.html" %}
 {% block title %}PathFinder - {{ route.name }}{% endblock %}
-
-{% block head %}
-<script src="https://maps.googleapis.com/maps/api/js?key={{ api_key }}&callback=initMap" async defer></script>
-{% endblock %}
 
 {% block content %}
 <div id="map-container">
-    <div id="sidebar" class="floating-panel">
-        <header class="route-header">
-            <h2>{{ route.name }}</h2>
-            {% if predictions.quality_score %}
-            <div class="quality-score">
-                <span class="score">{{ "%.1f"|format(predictions.quality_score * 100) }}%</span>
-                <span class="label">Match</span>
-            </div>
-            {% endif %}
-        </header>
-
-        <div class="route-stats">
-            <div class="stat-item">
-                <span class="icon">📏</span>
-                <span class="label">Distance</span>
-                <span class="value">{{ "%.1f"|format(route.distance) }} km</span>
-            </div>
-
-            {% if route.elevation_gain %}
-            <div class="stat-item">
-                <span class="icon">⛰️</span>
-                <span class="label">Elevation Gain</span>
-                <span class="value">{{ "%.1f"|format(route.elevation_gain) }}m</span>
-            </div>
-            {% endif %}
-
-            {% if predictions.difficulty_score %}
-            <div class="stat-item">
-                <span class="icon">📊</span>
-                <span class="label">Difficulty</span>
-                <span class="value">{{ "%.1f"|format(predictions.difficulty_score * 100) }}%</span>
-            </div>
-            {% endif %}
+  <div id="sidebar" class="floating-panel">
+    <div class="route-header mb-3">
+      <h2>{{ route.name }}</h2>
+      {% if ai_analysis %}
+      <div class="ai-analysis my-3">
+        <div class="quality-score text-center">
+          <span class="score">{{ "%.1f"|format(ai_analysis.quality_score * 100) }}%</span>
+          <span class="label">AI Match Score</span>
         </div>
-
-        <section class="route-description">
-            <h3>Description</h3>
-            <p>{{ route.description }}</p>
-        </section>
-
-        {% if route.feedback %}
-        <section class="route-feedback">
-            <h3>User Feedback</h3>
-            {% for feedback in route.feedback %}
-            <div class="feedback-item">
-                <div class="rating">
-                    {% for _ in range(feedback.rating) %}⭐{% endfor %}
-                </div>
-                {% if feedback.comment %}
-                <p class="comment">{{ feedback.comment }}</p>
-                {% endif %}
-                <div class="feedback-date">
-                    {{ feedback.created_at.strftime('%Y-%m-%d %H:%M') }}
-                </div>
-            </div>
-            {% endfor %}
-        </section>
+        {% if ai_analysis.route_type %}
+        <div class="ai-recommendation text-center">
+          <span class="label">Recommended for:</span>
+          <span class="value">{{ ai_analysis.route_type|title }} Running</span>
+        </div>
         {% endif %}
-
-        <section class="add-feedback">
-            <h3>Add Your Feedback</h3>
-            <form id="feedback-form" class="feedback-form">
-                <div class="form-group">
-                    <label class="form-label">Rating</label>
-                    <div class="star-rating">
-                        {% for i in range(5, 0, -1) %}
-                        <input type="radio" id="star{{ i }}" name="rating" value="{{ i }}">
-                        <label for="star{{ i }}">★</label>
-                        {% endfor %}
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="comment">Comment (optional)</label>
-                    <textarea id="comment" name="comment" class="form-control" rows="3"></textarea>
-                </div>
-
-                <button type="submit" class="btn btn-primary w-100">Submit Feedback</button>
-            </form>
-        </section>
-
-        <div class="action-buttons">
-            <a href="{{ url_for('main.search_page') }}" class="btn btn-secondary">Back to Search</a>
-            <a href="{{ url_for('main.download_gpx', route_id=route.id) }}" class="btn btn-primary">Download GPX</a>            
-                Download GPX
-            </a>
-            {% endif %}
-        </div>
+      </div>
+      {% endif %}
     </div>
 
-    <div id="map"></div>
-    
-    <button id="toggle-sidebar" class="toggle-btn" aria-label="Toggle Sidebar">
-        ☰
-    </button>
+    <div class="route-stats mb-3">
+      <div class="stat-item mb-2">
+        <i class="icon">📏</i>
+        <span class="label">Distance:</span>
+        <span class="value">{{ "%.1f"|format(route.distance) }} km</span>
+      </div>
+      {% if route.elevation_gain %}
+      <div class="stat-item mb-2">
+        <i class="icon">⛰️</i>
+        <span class="label">Elevation Gain:</span>
+        <span class="value">{{ "%.1f"|format(route.elevation_gain) }} m</span>
+      </div>
+      {% endif %}
+      {% if ai_analysis and ai_analysis.difficulty_score %}
+      {% set diff_width = ai_analysis.difficulty_score * 100 %}
+      <div class="stat-item mb-2">
+        <i class="icon">📊</i>
+        <span class="label">AI Difficulty Rating:</span>
+        <span class="value">{{ get_difficulty_label(ai_analysis.difficulty_score) }}</span>
+        <div class="difficulty-bar" style="width: {{ diff_width|round(0, 'floor') }}%;"></div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="section route-description mb-3">
+      <h3>Description</h3>
+      <p>{{ route.description }}</p>
+      {% if ai_analysis and ai_analysis.route_features %}
+      <div class="ai-features">
+        <h4>Route Features</h4>
+        <ul>
+          {% for feature in ai_analysis.route_features %}
+          <li>{{ feature }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if route.feedback %}
+    <div class="section route-feedback mb-3">
+      <h3>User Feedback</h3>
+      {% for feedback in route.feedback %}
+      <div class="feedback-item mb-2">
+        <div class="rating">
+          {% for _ in range(feedback.rating) %}⭐{% endfor %}
+        </div>
+        {% if feedback.comment %}
+        <p>{{ feedback.comment }}</p>
+        {% endif %}
+        <div class="feedback-date">
+          {{ feedback.created_at }}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="section add-feedback mb-3">
+      <h3>Add Your Feedback</h3>
+      <form id="feedback-form" class="feedback-form">
+        <div class="form-group mb-2">
+          <label>Rating</label>
+          <div class="star-rating">
+            {% for i in range(5, 0, -1) %}
+            <input type="radio" name="rating" value="{{ i }}" id="star{{ i }}">
+            <label for="star{{ i }}">★</label>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="form-group mb-2">
+          <label for="comment">Comment (optional)</label>
+          <textarea id="comment" name="comment" class="form-control"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Submit Feedback</button>
+      </form>
+    </div>
+
+    <div class="action-buttons d-flex flex-column gap-2">
+      <a href="{{ url_for('main.search_page') }}" class="btn btn-secondary">Back to Search</a>
+      <a href="{{ url_for('main.download_gpx', route_id=route.id) }}" class="btn btn-primary">Download GPX</a>
+    </div>
+  </div>
+
+  <div id="map"></div>
+  <button class="sidebar-toggle">☰</button>
 </div>
+
+<div id="route-data" 
+     data-route='{{ route|tojson|safe }}' 
+     data-ai-analysis='{{ ai_analysis|tojson|safe if ai_analysis else "{}" }}'
+     class="d-none">
+</div>
+
+<div id="loading-overlay" class="loading-overlay">
+  <div class="loading-content">
+    <div class="spinner"></div>
+    <span>Loading...</span>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  if (typeof initMap === 'function') {
+    initMap();
+  }
+
+  const feedbackForm = document.getElementById('feedback-form');
+  if (feedbackForm) {
+    feedbackForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const overlay = document.getElementById('loading-overlay');
+      overlay.classList.add('active');
+      try {
+        const formData = new FormData(feedbackForm);
+        const response = await fetch(`/api/routes/{{ route.id }}/feedback`, {
+          method: 'POST',
+          body: formData
+        });
+        if (response.ok) {
+          window.location.reload();
+        } else {
+          throw new Error('Failed to submit feedback');
+        }
+      } catch (error) {
+        console.error('Error submitting feedback:', error);
+        alert('Failed to submit feedback. Please try again.');
+      } finally {
+        overlay.classList.remove('active');
+      }
+    });
+  }
+});
+</script>
 {% endblock %}

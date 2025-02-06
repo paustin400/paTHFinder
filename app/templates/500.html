@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}500 - Server Error{% endblock %}
+
+{% block content %}
+<div class="container d-flex align-items-center justify-content-center vh-100">
+    <div class="error-content text-center">
+        <h1 class="display-1">500</h1>
+        <h2>Internal Server Error</h2>
+        <p>Something went wrong on our end. Please try again later.</p>
+        <p>If the problem persists, please contact our support team at <a href="mailto:support@example.com">support@example.com</a>.</p>
+        <a href="{{ url_for('main.homepage') }}" class="btn btn-primary mt-3">Return Home</a>
+    </div>
+</div>
+{% endblock %}

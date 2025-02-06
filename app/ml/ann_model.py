@@ -1,5 +1,3 @@
-# app/ml/ann_model.py
-
 import os
 import numpy as np
 from typing import Optional, Dict, Any, List, Tuple
@@ -16,7 +14,7 @@ from .config import ModelConfig
 warnings.filterwarnings('ignore', category=ConvergenceWarning)
 
 def prepare_route_features(route_data: Dict[str, float]) -> np.ndarray:
-    """Prepare features for the model in a consistent order"""
+    """Prepare features for the ANN model in a consistent order."""
     features = np.array([
         route_data.get('distance', 0.0),
         route_data.get('elevation_gain', 0.0),
@@ -44,11 +42,10 @@ class PathfinderANN:
         ]
 
     def build_model(self) -> None:
-        """Build the neural network using sklearn's MLPRegressor"""
+        """Build a new ANN model using sklearn's MLPRegressor."""
         try:
-            self.logger.info("Building new model...")
+            self.logger.info("Building new ANN model...")
             self.scaler = StandardScaler()
-            
             self.model = MLPRegressor(
                 hidden_layer_sizes=(128, 64, 32),
                 activation='relu',
@@ -62,28 +59,24 @@ class PathfinderANN:
                 n_iter_no_change=10,
                 random_state=42
             )
-            
-            self.logger.info("Model built successfully")
-            
+            self.logger.info("ANN model built successfully")
         except Exception as e:
-            self.logger.error(f"Error building model: {str(e)}")
+            self.logger.error(f"Error building ANN model: {str(e)}")
             raise
 
     def load_model(self) -> bool:
-        """Load the saved model and metadata"""
+        """Load the saved ANN model and its metadata."""
         try:
             if not os.path.exists(self.model_path):
-                self.logger.warning(f"No saved model found at {self.model_path}")
+                self.logger.warning(f"No saved ANN model found at {self.model_path}")
                 self.build_model()
                 return True
 
-            # Load model and scaler
             with open(self.model_path, 'rb') as f:
                 model_data = pickle.load(f)
                 self.model = model_data['model']
                 self.scaler = model_data['scaler']
 
-            # Load metadata if available
             if os.path.exists(self.metadata_path):
                 with open(self.metadata_path, 'r') as f:
                     metadata = json.load(f)
@@ -92,32 +85,26 @@ class PathfinderANN:
                         metadata.get('training_date', datetime.utcnow().isoformat())
                     )
                     self.feature_names = metadata.get('feature_names', self.feature_names)
-
             return True
-            
         except Exception as e:
-            self.logger.error(f"Error loading model: {str(e)}")
-            self.build_model()  # Create new model if loading fails
-            return True  # Return True since we have a fallback
+            self.logger.error(f"Error loading ANN model: {str(e)}")
+            self.build_model()  # Build new model as fallback
+            return True
 
     def train(self, features: np.ndarray, labels: np.ndarray) -> Tuple[bool, Dict[str, float]]:
-        """Train the model with provided data"""
+        """Train the ANN model with provided data."""
         try:
             if not self.model:
                 self.build_model()
 
-            # Ensure arrays are the right shape
             X = np.array(features)
             y = np.array(labels).ravel()
 
-            # Scale the input features
             X_scaled = self.scaler.fit_transform(X)
 
-            # Train the model
-            self.logger.info("Starting model training...")
+            self.logger.info("Starting ANN model training...")
             self.model.fit(X_scaled, y)
 
-            # Calculate metrics
             train_score = self.model.score(X_scaled, y)
             metrics = {
                 'r2_score': float(train_score),
@@ -125,54 +112,39 @@ class PathfinderANN:
                 'n_iter': int(self.model.n_iter_)
             }
 
-            # Update metadata
             self.last_training_date = datetime.utcnow()
             self.model_version = f"1.1.{int(datetime.utcnow().timestamp())}"
             
-            # Save model and metadata
             self.save_model(metrics)
             
-            self.logger.info(f"Training completed. Metrics: {metrics}")
+            self.logger.info(f"ANN training completed. Metrics: {metrics}")
             return True, metrics
-            
         except Exception as e:
-            self.logger.error(f"Error training model: {str(e)}")
+            self.logger.error(f"Error training ANN model: {str(e)}")
             return False, {}
 
     def predict_route_quality(self, features: np.ndarray) -> np.ndarray:
-        """Predict route quality score"""
+        """Predict the route quality score using the ANN model."""
         try:
             if not self.model:
                 if not self.load_model():
-                    raise ValueError("Model not initialized and couldn't be loaded")
-
-            # Ensure features are in the right format
+                    raise ValueError("ANN model not initialized and couldn't be loaded")
             features = np.array(features)
             if len(features.shape) == 1:
                 features = features.reshape(1, -1)
-
-            # Scale features
             features_scaled = self.scaler.transform(features)
-            
-            # Make predictions
             predictions = self.model.predict(features_scaled)
-            
-            # Ensure predictions are in [0, 1] range
             predictions = np.clip(predictions, 0, 1)
-            
             return predictions.reshape(-1, 1)
-            
         except Exception as e:
-            self.logger.error(f"Error making predictions: {str(e)}")
-            return np.array([[0.5]])  # Return neutral prediction on error
+            self.logger.error(f"Error making ANN predictions: {str(e)}")
+            return np.array([[0.5]])  # Neutral prediction as fallback
 
     def save_model(self, metrics: Optional[Dict[str, float]] = None) -> bool:
-        """Save the model and its metadata"""
+        """Save the ANN model and metadata to disk."""
         try:
             if not self.model:
-                raise ValueError("No model to save")
-
-            # Save model and scaler together
+                raise ValueError("No ANN model to save")
             model_data = {
                 'model': self.model,
                 'scaler': self.scaler
@@ -180,7 +152,6 @@ class PathfinderANN:
             with open(self.model_path, 'wb') as f:
                 pickle.dump(model_data, f)
 
-            # Save metadata
             metadata = {
                 'version': self.model_version,
                 'training_date': self.last_training_date.isoformat(),
@@ -188,12 +159,9 @@ class PathfinderANN:
                 'input_shape': self.input_shape,
                 'metrics': metrics or {}
             }
-            
             with open(self.metadata_path, 'w') as f:
                 json.dump(metadata, f, indent=2)
-
             return True
-            
         except Exception as e:
-            self.logger.error(f"Error saving model: {str(e)}")
+            self.logger.error(f"Error saving ANN model: {str(e)}")
             return False

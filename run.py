@@ -1,9 +1,7 @@
-# run.py
 import logging
 from app import create_app
-from app.ml.ai_model import init_ai_model
+from app.ml.model_coordinator import ModelCoordinator
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -15,18 +13,19 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# Create the Flask app instance
-app = create_app()
+def init_application():
+    try:
+        app = create_app()
+        with app.app_context():
+            coordinator = ModelCoordinator()
+            if not coordinator.initialize_models():
+                logger.warning("ML models initialization failed - will use fallback predictions")
+            app.model_coordinator = coordinator
+        return app
+    except Exception as e:
+        logger.error(f"Failed to initialize application: {e}")
+        raise
 
 if __name__ == "__main__":
-    # Initialize the AI model within the application context
-    try:
-        with app.app_context():
-            init_ai_model()
-            logger.info("AI model initialized successfully")
-    except Exception as e:
-        logger.error(f"Failed to initialize AI model: {e}")
-        raise
-    
-    # Start the Flask development server
-    app.run(debug=True)
+    app = init_application()
+    app.run(debug=True, host='0.0.0.0', port=5000)

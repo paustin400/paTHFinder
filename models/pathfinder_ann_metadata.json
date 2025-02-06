@@ -1,0 +1,17 @@
+{
+  "version": "1.1.1733892318",
+  "training_date": "2024-12-10T23:45:18.429787",
+  "feature_names": [
+    "distance",
+    "elevation_gain",
+    "traffic_level",
+    "surface_quality",
+    "safety_score"
+  ],
+  "input_shape": 5,
+  "metrics": {
+    "r2_score": 0.4055861250117565,
+    "loss": 0.0052549088588888515,
+    "n_iter": 51
+  }
+}

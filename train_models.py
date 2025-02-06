@@ -7,18 +7,57 @@ from dotenv import load_dotenv
 from app.ml.model_coordinator import ModelCoordinator
 import logging
 from flask import Flask
+import json
 
-# Set up logging
+# Enhanced logging setup
 logging.basicConfig(
     level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('training_debug.log'),
+        logging.StreamHandler()
+    ]
 )
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-load_dotenv()
+def verify_model_files(model_dir):
+    """Verify model files exist and are valid"""
+    files_status = {}
+    expected_files = {
+        'pathfinder_model.pkl': 0,
+        'pathfinder_ann.pkl': 0,
+        'pathfinder_ann_metadata.json': 0
+    }
+    
+    for file in os.listdir(model_dir):
+        if file in expected_files:
+            size = os.path.getsize(os.path.join(model_dir, file))
+            files_status[file] = {
+                'exists': True,
+                'size': size,
+                'valid': size > 0
+            }
+            logger.info(f"Found {file}: {size} bytes")
+    
+    return files_status
+
+def log_data_info(data, name):
+    """Safely log information about data arrays"""
+    if isinstance(data, np.ndarray):
+        if data.dtype.kind in ['i', 'f']:  # Integer or float
+            logger.info(f"{name} - Shape: {data.shape}, Range: [{data.min():.2f}, {data.max():.2f}]")
+        else:  # String or other types
+            logger.info(f"{name} - Shape: {data.shape}, Types: {np.unique(data).tolist()}")
+    elif isinstance(data, pd.DataFrame):
+        logger.info(f"{name} - Shape: {data.shape}")
+        for column in data.columns:
+            if data[column].dtype.kind in ['i', 'f']:
+                logger.info(f"  {column} - Range: [{data[column].min():.2f}, {data[column].max():.2f}]")
+            else:
+                logger.info(f"  {column} - Unique values: {data[column].unique().tolist()}")
 
 def create_training_data():
+    """Generate and validate training data"""
     logger.info("Generating sample training data...")
     n_samples = 200
     
@@ -30,8 +69,6 @@ def create_training_data():
         'is_lit': np.random.choice([0, 1], n_samples),
         'surface_type': np.random.choice(['asphalt', 'dirt', 'grass'], n_samples)
     })
-    
-    logger.info(f"Created routes_data with shape: {routes_data.shape}")
     
     route_types = np.random.choice(['easy', 'moderate', 'challenging'], n_samples)
     difficulty_scores = np.clip(np.random.normal(0.5, 0.2, n_samples), 0, 1)
@@ -46,8 +83,18 @@ def create_training_data():
     
     quality_scores = np.clip(np.random.normal(0.7, 0.15, n_samples), 0, 1)
     
-    logger.info(f"ANN features shape: {ann_features.shape}")
-    logger.info(f"ANN labels shape: {quality_scores.shape}")
+    # Save sample data for verification
+    sample_data = {
+        'routes_data': routes_data.head().to_dict(),
+        'route_types': route_types[:5].tolist(),
+        'difficulty_scores': difficulty_scores[:5].tolist(),
+        'quality_scores': quality_scores[:5].tolist()
+    }
+    
+    with open('sample_training_data.json', 'w') as f:
+        json.dump(sample_data, f, indent=2)
+    
+    logger.info("Saved sample training data to sample_training_data.json")
     
     return {
         'rf_features': routes_data,
@@ -64,7 +111,7 @@ def train_models():
         # Create Flask app context
         app = Flask(__name__)
         with app.app_context():
-            # Check models directory
+            # Setup model directory
             model_dir = os.getenv("MODEL_DIR", "models")
             abs_model_dir = os.path.abspath(model_dir)
             logger.info(f"Using model directory: {abs_model_dir}")
@@ -73,39 +120,54 @@ def train_models():
                 os.makedirs(abs_model_dir)
                 logger.info(f"Created model directory: {abs_model_dir}")
             
+            # Check existing model files
+            logger.info("Checking existing model files...")
+            initial_files = verify_model_files(abs_model_dir)
+            
             # Initialize coordinator
             logger.info("Initializing ModelCoordinator...")
             coordinator = ModelCoordinator()
             
             # Generate and verify training data
             training_data = create_training_data()
-            logger.info("Verifying training data shapes:")
-            logger.info(f"RF features shape: {training_data['rf_features'].shape}")
-            logger.info(f"RF route types shape: {training_data['rf_labels']['route_type'].shape}")
-            logger.info(f"RF difficulty scores shape: {training_data['rf_labels']['difficulty'].shape}")
-            logger.info(f"ANN features shape: {training_data['ann_features'].shape}")
-            logger.info(f"ANN labels shape: {training_data['ann_labels'].shape}")
+            
+            # Log data information safely
+            logger.info("Training data summary:")
+            log_data_info(training_data['rf_features'], "RF Features")
+            log_data_info(training_data['rf_labels']['route_type'], "Route Types")
+            log_data_info(training_data['rf_labels']['difficulty'], "Difficulty Scores")
+            log_data_info(training_data['ann_features'], "ANN Features")
+            log_data_info(training_data['ann_labels'], "Quality Scores")
             
             # Train models
             logger.info("Starting model training...")
             success = coordinator.update_models(training_data)
             
             if success:
-                # Verify files were created
-                expected_files = ['pathfinder_model.pkl', 'pathfinder_ann.pkl', 'pathfinder_ann_metadata.json']
-                existing_files = os.listdir(abs_model_dir)
-                logger.info(f"Files in model directory after training: {existing_files}")
+                logger.info("Model training reported success. Verifying files...")
+                final_files = verify_model_files(abs_model_dir)
                 
-                missing_files = [f for f in expected_files if f not in existing_files]
-                if missing_files:
-                    logger.error(f"Missing expected model files: {missing_files}")
-                else:
-                    logger.info("All model files were created successfully!")
+                # Compare initial and final states
+                new_files = {k: v for k, v in final_files.items() if k not in initial_files}
+                updated_files = {k: v for k, v in final_files.items() if k in initial_files and v != initial_files[k]}
+                
+                if new_files:
+                    logger.info(f"New files created: {new_files}")
+                if updated_files:
+                    logger.info(f"Files updated: {updated_files}")
+                
+                return True
             else:
                 logger.error("Model training reported failure")
+                return False
                 
     except Exception as e:
         logger.error(f"Error during training process: {str(e)}", exc_info=True)
+        return False
 
 if __name__ == "__main__":
-    train_models()
+    success = train_models()
+    if success:
+        logger.info("Training completed successfully")
+    else:
+        logger.error("Training failed")

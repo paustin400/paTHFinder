@@ -1,56 +1,92 @@
-{% extends "base.html" %}
-
+{% extends "map_base.html" %}
 {% block title %}PathFinder - Search Results{% endblock %}
 
 {% block content %}
 <div id="map-container">
-    <div id="sidebar" class="floating-panel">
-        <h2 class="text-center mb-4">Found Routes</h2>
-        
-        <div id="routes-list" class="routes-list">
-            {% if routes %}
-                {% for route in routes %}
-                    <div class="route-item" data-route-id="{{ route.id }}">
-                        <h3>{{ route.name }}</h3>
-                        <div class="route-details">
-                            <div class="detail-item">
-                                <span class="icon">📏</span>
-                                {{ "%.1f"|format(route.distance) }} km
-                            </div>
-                            {% if route.elevation_gain %}
-                            <div class="detail-item">
-                                <span class="icon">⛰️</span>
-                                {{ "%.1f"|format(route.elevation_gain) }}m gain
-                            </div>
-                            {% endif %}
-                            {% if route.quality_score %}
-                            <div class="detail-item">
-                                <span class="icon">📊</span>
-                                {{ "%.1f"|format(route.quality_score * 100) }}% match
-                            </div>
-                            {% endif %}
-                        </div>
-                        <div class="route-description">
-                            {{ route.description }}
-                        </div>
-                    </div>
-                {% endfor %}
-            {% else %}
-                <div class="no-results">
-                    No routes found matching your criteria.
-                </div>
+  <div id="sidebar" class="floating-panel">
+    <h2 id="found-routes" class="text-center mb-4">Found Routes</h2>
+    <div id="routes-list" class="routes-list">
+      {% if routes %}
+        {% for route in routes %}
+        <div class="route-item" data-route-id="{{ route.id }}">
+          <h3>{{ route.name }}</h3>
+          <div class="route-details">
+            <span class="detail-item">
+              <i class="icon">📏</i> {{ "%.1f"|format(route.distance) }} km
+            </span>
+            {% if route.elevation_gain %}
+            <span class="detail-item">
+              <i class="icon">⛰️</i> {{ "%.1f"|format(route.elevation_gain) }} m gain
+            </span>
             {% endif %}
+            {% if route.quality_score %}
+            <span class="detail-item">
+              <i class="icon">📊</i> {{ "%.1f"|format(route.quality_score * 100) }}% match
+            </span>
+            {% endif %}
+            {% if route.ai_confidence %}
+            <span class="detail-item ai-score">
+              <i class="icon">🤖</i> {{ "%.1f"|format(route.ai_confidence * 100) }}% AI confidence
+            </span>
+            {% endif %}
+          </div>
+          <div class="route-description">{{ route.description }}</div>
+          {% if route.ai_tags %}
+          <div class="ai-tags">
+            {% for tag in route.ai_tags %}
+            <span class="badge bg-info">{{ tag }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
         </div>
-
-        <div class="action-buttons mt-4">
-            <a href="{{ url_for('main.search_page') }}" class="btn btn-primary w-100">New Search</a>
+        {% endfor %}
+      {% else %}
+        <div class="no-results text-center">
+          No routes found matching your criteria.
         </div>
+      {% endif %}
     </div>
-
-    <div id="map"></div>
-    
-    <button id="toggle-sidebar" class="toggle-btn" aria-label="Toggle Sidebar">
-        ☰
-    </button>
+    <div class="action-buttons mt-4">
+      <a href="{{ url_for('main.search_page') }}" class="btn btn-primary w-100">
+        New Search
+      </a>
+    </div>
+  </div>
+  <div id="map"></div>
+  <button class="sidebar-toggle">☰</button>
 </div>
+
+<div id="route-detail-modal" class="modal fade" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Route Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Content will be dynamically inserted here -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="loading-overlay" class="loading-overlay">
+  <div class="loading-content">
+    <div class="spinner"></div>
+    <span>Loading...</span>
+  </div>
+</div>
+
+<div id="message-container"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Initialization for search results.
+  function initMap() {
+    if (window.pathfinder && typeof window.pathfinder.initializeMap === 'function') {
+      window.pathfinder.initializeMap();
+    }
+  }
+</script>
 {% endblock %}

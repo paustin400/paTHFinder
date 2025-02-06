@@ -1,17 +1,22 @@
-<!-- templates/home.html -->
 {% extends "base.html" %}
 
 {% block title %}PathFinder - Find Your Perfect Running Route{% endblock %}
 
 {% block content %}
-<div class="container d-flex align-items-center justify-content-center vh-100 text-center">
-    <div class="welcome-content">
-        <h1 class="display-4">Welcome to PathFinder</h1>
-        <p class="lead">Explore the best running routes tailored to your preferences!</p>
-        <div class="action-buttons mt-4">
-            <a href="{{ url_for('main.search_page') }}" class="btn btn-primary btn-lg">Search for Routes</a>
-            <a href="{{ url_for('main.preferences_page') }}" class="btn btn-outline-primary btn-lg ml-3">Set Preferences</a>            
-        </div>
+<div class="container">
+  <div class="welcome-content text-center mt-5">
+    <h1 class="display-4">Welcome to PathFinder</h1>
+    <p class="lead mb-4">
+      Explore the best running routes tailored to your preferences!
+    </p>
+    <div class="action-buttons d-flex justify-content-center gap-3">
+      <a href="{{ url_for('main.search_page') }}" class="btn btn-primary btn-lg" role="button">
+        Search for Routes
+      </a>
+      <a href="{{ url_for('main.preferences_page') }}" class="btn btn-outline-primary btn-lg" role="button">
+        Set Preferences
+      </a>
     </div>
+  </div>
 </div>
 {% endblock %}

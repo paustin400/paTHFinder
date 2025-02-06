@@ -1,9 +1,10 @@
-# app/routes/__init__.py
 def init_routes(app):
-    # Import blueprints
+    # Import blueprints from the submodules
     from .main import bp as main_bp
-    from .api import api_bp
-    
-    # Register blueprints with URL prefixes
-    app.register_blueprint(main_bp)  # Main routes (/, /search, etc.)
-    app.register_blueprint(api_bp, url_prefix='/api')  # All API routes under /api
+    from .api import bp as api_bp
+
+    # Register blueprints with the application
+    app.register_blueprint(main_bp)              # Routes for the main site (e.g., '/')
+    app.register_blueprint(api_bp, url_prefix='/api')  # Routes under '/api'
+
+    app.logger.info("Routes initialized successfully")

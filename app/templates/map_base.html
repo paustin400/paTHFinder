@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block head %}
+  {{ super() }}
+  <style>
+    /* Ensure the map fills its container */
+    #map {
+      height: 100%;
+      width: 100%;
+    }
+    #map-container {
+      position: relative;
+      height: 100vh; /* Use full viewport height */
+      width: 100%;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div id="map-container">
+  {% block map_content %}
+    <div id="map"></div>
+  {% endblock %}
+</div>
+{% endblock %}

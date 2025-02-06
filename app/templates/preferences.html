@@ -3,140 +3,153 @@
 {% block title %}PathFinder - Set Your Preferences{% endblock %}
 
 {% block content %}
-<div class="preferences-container">
-    <div class="preferences-card">
-        <h1 class="text-center mb-4">Set Your Route Preferences</h1>
+<div class="container my-5">
+  <div class="card mx-auto" style="max-width: 600px;">
+    <div class="card-body">
+      <h1 class="text-center mb-4">Set Your Route Preferences</h1>
+      <form id="preferences-form">
+        <!-- Basic Preferences -->
+        <div class="mb-4">
+          <h3>Basic Preferences</h3>
+          <div class="mb-3">
+            <label class="form-label">Preferred Route Type</label>
+            <div class="btn-group" role="group" aria-label="Preferred Route Type">
+              <input type="radio" class="btn-check" name="route_type" id="route_type_road" value="road" autocomplete="off" checked>
+              <label class="btn btn-outline-primary" for="route_type_road">Road Running</label>
+              <input type="radio" class="btn-check" name="route_type" id="route_type_trail" value="trail" autocomplete="off">
+              <label class="btn btn-outline-primary" for="route_type_trail">Trail Running</label>
+              <input type="radio" class="btn-check" name="route_type" id="route_type_mixed" value="mixed" autocomplete="off">
+              <label class="btn btn-outline-primary" for="route_type_mixed">Mixed Terrain</label>
+            </div>
+          </div>
 
-        <form id="preferences-form" class="preferences-form">
-            <section class="form-section">
-                <h3>Basic Preferences</h3>
-                
-                <div class="form-group">
-                    <label class="form-label">Preferred Route Type</label>
-                    <div class="btn-group" role="group">
-                        <input type="radio" id="type-road" name="route_type" value="road" 
-                               {% if preferences.route_type == 'road' %}checked{% endif %}>
-                        <label for="type-road" class="btn btn-outline-primary">Road Running</label>
-                        
-                        <input type="radio" id="type-trail" name="route_type" value="trail"
-                               {% if preferences.route_type == 'trail' %}checked{% endif %}>
-                        <label for="type-trail" class="btn btn-outline-primary">Trail Running</label>
-                        
-                        <input type="radio" id="type-mixed" name="route_type" value="mixed"
-                               {% if preferences.route_type == 'mixed' %}checked{% endif %}>
-                        <label for="type-mixed" class="btn btn-outline-primary">Mixed Terrain</label>
-                    </div>
-                </div>
+          <div class="mb-3">
+            <label class="form-label">Elevation Preference</label>
+            <div class="btn-group" role="group" aria-label="Elevation Preference">
+              <input type="radio" class="btn-check" name="elevation_preference" id="elevation_flat" value="flat" autocomplete="off" checked>
+              <label class="btn btn-outline-primary" for="elevation_flat">Flat Routes</label>
+              <input type="radio" class="btn-check" name="elevation_preference" id="elevation_moderate" value="moderate" autocomplete="off">
+              <label class="btn btn-outline-primary" for="elevation_moderate">Moderate Hills</label>
+              <input type="radio" class="btn-check" name="elevation_preference" id="elevation_challenging" value="challenging" autocomplete="off">
+              <label class="btn btn-outline-primary" for="elevation_challenging">Challenging Climbs</label>
+            </div>
+          </div>
+        </div>
 
-                <div class="form-group">
-                    <label class="form-label">Elevation Preference</label>
-                    <select name="elevation_preference" class="form-control">
-                        <option value="flat" {% if preferences.elevation_preference == 'flat' %}selected{% endif %}>
-                            Flat Routes
-                        </option>
-                        <option value="moderate" {% if preferences.elevation_preference == 'moderate' %}selected{% endif %}>
-                            Moderate Hills
-                        </option>
-                        <option value="challenging" {% if preferences.elevation_preference == 'challenging' %}selected{% endif %}>
-                            Challenging Climbs
-                        </option>
-                    </select>
-                </div>
-            </section>
+        <!-- Surface & Environment -->
+        <div class="mb-4">
+          <h3>Surface & Environment</h3>
+          <div class="mb-3">
+            <label class="form-label">Preferred Surface</label>
+            <div class="btn-group" role="group" aria-label="Preferred Surface">
+              <input type="radio" class="btn-check" name="surface_preference" id="surface_pavement" value="pavement" autocomplete="off" checked>
+              <label class="btn btn-outline-primary" for="surface_pavement">Asphalt/Pavement</label>
+              <input type="radio" class="btn-check" name="surface_preference" id="surface_trail" value="trail" autocomplete="off">
+              <label class="btn btn-outline-primary" for="surface_trail">Dirt/Trail</label>
+              <input type="radio" class="btn-check" name="surface_preference" id="surface_grass" value="grass" autocomplete="off">
+              <label class="btn btn-outline-primary" for="surface_grass">Grass/Park Paths</label>
+            </div>
+          </div>
 
-            <section class="form-section">
-                <h3>Surface & Environment</h3>
-                
-                <div class="form-group">
-                    <label class="form-label">Preferred Surface</label>
-                    <select name="surface_preference" class="form-control">
-                        <option value="asphalt" {% if preferences.surface_preference == 'asphalt' %}selected{% endif %}>
-                            Asphalt/Pavement
-                        </option>
-                        <option value="dirt" {% if preferences.surface_preference == 'dirt' %}selected{% endif %}>
-                            Dirt/Trail
-                        </option>
-                        <option value="grass" {% if preferences.surface_preference == 'grass' %}selected{% endif %}>
-                            Grass/Park Paths
-                        </option>
-                    </select>
-                </div>
+          <div class="mb-3">
+            <label class="form-label">Traffic Preference</label>
+            <div class="btn-group" role="group" aria-label="Traffic Preference">
+              <input type="radio" class="btn-check" name="traffic_preference" id="traffic_avoid" value="avoid" autocomplete="off" checked>
+              <label class="btn btn-outline-primary" for="traffic_avoid">Avoid High Traffic</label>
+              <input type="radio" class="btn-check" name="traffic_preference" id="traffic_any" value="any" autocomplete="off">
+              <label class="btn btn-outline-primary" for="traffic_any">No Preference</label>
+            </div>
+          </div>
 
-                <div class="form-group">
-                    <label class="form-label">Traffic Preference</label>
-                    <select name="traffic_preference" class="form-control">
-                        <option value="avoid" {% if preferences.traffic_preference == 'avoid' %}selected{% endif %}>
-                            Avoid High Traffic
-                        </option>
-                        <option value="neutral" {% if preferences.traffic_preference == 'neutral' %}selected{% endif %}>
-                            No Preference
-                        </option>
-                    </select>
-                </div>
+          <div class="mb-3">
+            <label class="form-label">Crowd Preference</label>
+            <div class="btn-group" role="group" aria-label="Crowd Preference">
+              <input type="radio" class="btn-check" name="crowd_preference" id="crowd_quiet" value="quiet" autocomplete="off" checked>
+              <label class="btn btn-outline-primary" for="crowd_quiet">Quiet/Isolated Routes</label>
+              <input type="radio" class="btn-check" name="crowd_preference" id="crowd_social" value="social" autocomplete="off">
+              <label class="btn btn-outline-primary" for="crowd_social">Social/Populated Areas</label>
+            </div>
+          </div>
+        </div>
 
-                <div class="form-group">
-                    <label class="form-label">Crowd Preference</label>
-                    <select name="crowd_preference" class="form-control">
-                        <option value="quiet" {% if preferences.crowd_preference == 'quiet' %}selected{% endif %}>
-                            Quiet/Isolated Routes
-                        </option>
-                        <option value="social" {% if preferences.crowd_preference == 'social' %}selected{% endif %}>
-                            Social/Populated Areas
-                        </option>
-                    </select>
-                </div>
-            </section>
+        <!-- Safety Features -->
+        <div class="mb-4">
+          <h3>Safety Features</h3>
+          <div class="form-check form-switch mb-3">
+            <input type="checkbox" class="form-check-input" id="well-lit">
+            <label class="form-check-label" for="well-lit">Prefer well-lit routes</label>
+          </div>
+          <div class="form-check form-switch mb-3">
+            <input type="checkbox" class="form-check-input" id="require-sidewalks">
+            <label class="form-check-label" for="require-sidewalks">Require sidewalks/pedestrian paths</label>
+          </div>
+        </div>
 
-            <section class="form-section">
-                <h3>Safety Features</h3>
-                
-                <div class="form-group">
-                    <label class="form-checkbox">
-                        <input type="checkbox" name="require_lighting" 
-                               {% if preferences.require_lighting %}checked{% endif %}>
-                        Prefer well-lit routes
-                    </label>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-checkbox">
-                        <input type="checkbox" name="require_sidewalks"
-                               {% if preferences.require_sidewalks %}checked{% endif %}>
-                        Require sidewalks/pedestrian paths
-                    </label>
-                </div>
-            </section>
-
-            <button type="submit" class="btn btn-primary w-100">Save Preferences</button>
-            <a href="{{ url_for('routes.search_page') }}" class="btn btn-outline-secondary w-100 mt-2">Back to Search</a>
-        </form>
+        <button type="submit" class="btn btn-primary w-100">Save Preferences</button>
+        <a href="{{ url_for('main.search_page') }}" class="btn btn-outline-secondary w-100 mt-2">Back to Search</a>
+      </form>
     </div>
+  </div>
 </div>
+
+<div id="loading-overlay" class="loading-overlay">
+  <div class="loading-content">
+    <div class="spinner"></div>
+    <span>Loading...</span>
+  </div>
+</div>
+
+<div id="message-container"></div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-document.getElementById('preferences-form').addEventListener('submit', async (e) => {
+  // Handle form submission for preferences
+  document.getElementById('preferences-form').addEventListener('submit', async function(e) {
     e.preventDefault();
-    const form = e.target;
-    const formData = new FormData(form);
+    
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const messageContainer = document.getElementById('message-container');
     
     try {
-        const response = await fetch('/api/preferences', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(Object.fromEntries(formData))
-        });
-        
-        if (!response.ok) throw new Error('Failed to save preferences');
-        
-        window.location.href = "{{ url_for('routes.search_page') }}";
+      loadingOverlay.classList.add('active');
+      
+      // Collect preferences from the form inputs
+      const preferences = {
+        routeType: document.querySelector('input[name="route_type"]:checked').value,
+        elevation: document.querySelector('input[name="elevation_preference"]:checked').value,
+        surface: document.querySelector('input[name="surface_preference"]:checked').value,
+        traffic: document.querySelector('input[name="traffic_preference"]:checked').value,
+        crowd: document.querySelector('input[name="crowd_preference"]:checked').value,
+        wellLit: document.getElementById('well-lit').checked,
+        requireSidewalks: document.getElementById('require-sidewalks').checked
+      };
+
+      const response = await fetch('/api/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(preferences)
+      });
+
+      if (response.ok) {
+        window.location.href = "{{ url_for('main.search_page') }}";
+      } else {
+        throw new Error('Failed to save preferences');
+      }
     } catch (error) {
-        console.error('Error:', error);
-        alert('Failed to save preferences. Please try again.');
+      console.error('Error saving preferences:', error);
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'message error';
+      messageDiv.textContent = 'Failed to save preferences. Please try again.';
+      messageContainer.appendChild(messageDiv);
+      
+      setTimeout(() => {
+        messageDiv.classList.add('fade-out');
+        setTimeout(() => messageDiv.remove(), 300);
+      }, 5000);
+    } finally {
+      loadingOverlay.classList.remove('active');
     }
-});
+  });
 </script>
 {% endblock %}
